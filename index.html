@@ -1681,6 +1681,9 @@ function extractYouTubeID(url) {
 // ==================== DISCOGS API CALLS ====================
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 1000;
+let requestCount = 0;
+let requestWindowStart = Date.now();
+const MAX_REQUESTS_PER_MINUTE = 60; // Conservative limit (Discogs allows 60)
 // Global request queue to strictly serialize Discogs API calls
 let requestQueue = Promise.resolve();
 
@@ -1690,13 +1693,33 @@ async function makeDiscogsRequest(url) {
     if (!consumerKey || !consumerSecret) {
         throw new Error('Discogs credentials not configured. Please go to Settings.');
     }
-    // Enqueue this request to ensure global 1 req/sec
+    // Enqueue this request to ensure global rate limiting
     requestQueue = requestQueue.then(async () => {
         const now = Date.now();
+        
+        // Reset counter if we're in a new minute window
+        if (now - requestWindowStart >= 60000) {
+            requestCount = 0;
+            requestWindowStart = now;
+        }
+        
+        // If we've hit the per-minute limit, wait until the next window
+        if (requestCount >= MAX_REQUESTS_PER_MINUTE) {
+            const waitTime = 60000 - (now - requestWindowStart);
+            if (waitTime > 0) {
+                console.log(`Rate limit: waiting ${Math.ceil(waitTime / 1000)}s before next request`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+                requestCount = 0;
+                requestWindowStart = Date.now();
+            }
+        }
+        
+        // Ensure minimum interval between requests
         const timeSinceLastRequest = now - lastRequestTime;
         if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
             await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
         }
+        
         const fullUrl = `${url}${url.includes('?') ? '&' : '?'}key=${consumerKey}&secret=${consumerSecret}`;
         const response = await fetch(fullUrl, {
             headers: {
@@ -1705,12 +1728,14 @@ async function makeDiscogsRequest(url) {
             }
         });
         lastRequestTime = Date.now();
+        requestCount++;
+        
         if (response.status === 429) {
             const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
             throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
         }
         if (response.status === 403) {
-            throw new Error('Forbidden (403). Verify Discogs API key/secret in Settings and wait a minute before retrying.');
+            throw new Error('Forbidden (403). Likely rate limited by Discogs.');
         }
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -1839,11 +1864,15 @@ async function processSellerData(jobId, username, forceRefresh = false) {
             
             let page = 1;
             const perPage = 100;
+            let consecutive403s = 0;
             
             while (true) {
                 try {
                     const inventory = await getSellerInventory(username, page, perPage);
                     const listings = inventory.listings || [];
+                    
+                    // Reset 403 counter on success
+                    consecutive403s = 0;
                     
                     if (listings.length === 0) break;
                     
@@ -1862,16 +1891,27 @@ async function processSellerData(jobId, username, forceRefresh = false) {
                 } catch (error) {
                     console.error('Error fetching inventory page:', error);
                     if (error.message.includes('Forbidden (403)')) {
+                        consecutive403s++;
+                        if (consecutive403s >= 3) {
+                            updateJob(jobId, { 
+                                status: 'error', 
+                                currentStep: 'Discogs API error 403: Rate limit exceeded. Wait 5 minutes and try again.' 
+                            });
+                            updateProgress(jobId);
+                            finishJob(jobId, username);
+                            return;
+                        }
+                        // Exponential backoff: 60s, 120s
+                        const waitTime = 60000 * Math.pow(2, consecutive403s - 1);
                         updateJob(jobId, { 
-                            status: 'error', 
-                            currentStep: 'Discogs API error 403: Check API credentials in Settings. If credentials are correct, you may have hit Discogs rate limits - wait 60 seconds and try again.' 
+                            currentStep: `Rate limited (403), waiting ${waitTime / 1000}s before retry ${consecutive403s}/3...` 
                         });
                         updateProgress(jobId);
-                        finishJob(jobId, username);
-                        return;
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        continue; // Retry same page
                     }
                     if (error.message.includes('Rate limited')) {
-                        updateJob(jobId, { currentStep: 'Rate limited, waiting...' });
+                        updateJob(jobId, { currentStep: 'Rate limited (429), waiting 60s...' });
                         updateProgress(jobId);
                         await new Promise(resolve => setTimeout(resolve, 60000));
                         continue;
