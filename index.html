@@ -2132,23 +2132,19 @@ async function processReleasesFromInventory(jobId, username) {
             return;
         }
         
-        // Limit batch size if we just fetched a lot of inventory pages
-        const MAX_BATCH_SIZE = 50; // Process max 50 new releases per run
-        const batchSize = Math.min(newReleaseIds.length, MAX_BATCH_SIZE);
-        const isPartialBatch = batchSize < newReleaseIds.length;
-        
         updateJob(jobId, {
-            total: batchSize,
+            total: newReleaseIds.length,
             progress: 0,
-            currentStep: `Fetching details for ${batchSize}${isPartialBatch ? ` of ${newReleaseIds.length}` : ''} new releases...`
+            currentStep: `Fetching details for ${newReleaseIds.length} new releases...`
         });
         updateProgress(jobId);
         
-        // Fetch details for new releases (batch only)
+        // Fetch details for all new releases with automatic rate limit handling
         const processedReleases = [...existingReleases];
-        let release403Count = 0;
+        const BATCH_SIZE = 50; // Process 50, then pause if hit rate limit
+        let consecutiveErrors = 0;
         
-        for (let i = 0; i < batchSize; i++) {
+        for (let i = 0; i < newReleaseIds.length; i++) {
             const job = getJobFromStorage(jobId);
             if (job && job.status === 'cancelled') {
                 console.log('Job cancelled');
@@ -2209,34 +2205,63 @@ async function processReleasesFromInventory(jobId, username) {
                 
             } catch (error) {
                 console.error(`Error fetching details for release ${releaseId} (${i + 1}/${newReleaseIds.length}):`, error);
+                
                 if (error.message.includes('Forbidden (403)')) {
-                    // Hit rate limit - stop immediately and save progress
-                    console.warn(`Hit 403 at release ${i + 1}/${batchSize}. Rate limit exhausted.`);
-                    updateJob(jobId, { 
-                        status: 'complete', 
-                        currentStep: `Processed ${processedReleases.length} releases. Hit rate limit - refresh seller later to continue.` 
-                    });
-                    updateProgress(jobId);
+                    consecutiveErrors++;
                     
-                    // Save what we have so far
+                    // Save progress after every batch
                     seller.releases = processedReleases;
-                    seller.lastUpdated = Date.now();
-                    saveTrackedSellers();
                     await saveSellerDataToDB(seller);
                     loadAllSellersData();
                     
-                    finishJob(jobId, username);
-                    return;
+                    // Check if we're at a batch boundary (every 50 releases)
+                    const isAtBatchBoundary = (i + 1) % BATCH_SIZE === 0 || i === 0;
+                    
+                    if (consecutiveErrors >= 3 && !isAtBatchBoundary) {
+                        // Too many errors mid-batch, give up
+                        console.warn(`Too many 403 errors at ${i + 1}/${newReleaseIds.length}`);
+                        updateJob(jobId, { 
+                            status: 'complete', 
+                            currentStep: `Processed ${processedReleases.length}/${releaseIds.length} releases (hit rate limit)` 
+                        });
+                        updateProgress(jobId);
+                        seller.lastUpdated = Date.now();
+                        saveTrackedSellers();
+                        finishJob(jobId, username);
+                        return;
+                    }
+                    
+                    // Wait progressively longer based on position in batch
+                    const waitMinutes = isAtBatchBoundary ? 3 : consecutiveErrors * 2; // 3min at batch boundary, or 2/4/6 min
+                    const waitMs = waitMinutes * 60 * 1000;
+                    
+                    console.warn(`403 at release ${i + 1}. Waiting ${waitMinutes} min before retry...`);
+                    updateJob(jobId, { 
+                        currentStep: `Rate limited (403), waiting ${waitMinutes}min... (${i + 1}/${newReleaseIds.length})` 
+                    });
+                    updateProgress(jobId);
+                    await new Promise(resolve => setTimeout(resolve, waitMs));
+                    i--; // Retry this release
+                    continue;
                 }
+                
                 if (error.message.includes('Rate limited')) {
+                    consecutiveErrors++;
                     updateJob(jobId, { currentStep: `Rate limited (429), waiting 60s... (${i + 1}/${newReleaseIds.length})` });
                     updateProgress(jobId);
                     await new Promise(resolve => setTimeout(resolve, 60000));
                     i--;
                     continue;
                 }
-                // Skip this release and continue
-                console.warn(`Skipping release ${releaseId} due to error`);
+                
+                // Other errors - skip this release and continue
+                console.warn(`Skipping release ${releaseId} due to error:`, error.message);
+                consecutiveErrors = 0; // Reset on non-rate-limit errors
+            }
+            
+            // Reset error counter on successful fetch
+            if (consecutiveErrors > 0) {
+                consecutiveErrors = 0;
             }
         }
         
@@ -2245,14 +2270,10 @@ async function processReleasesFromInventory(jobId, username) {
         await saveSellerDataToDB(seller);
         updateSellerList();
         
-        const completionMessage = isPartialBatch 
-            ? `Processed ${batchSize} releases. ${newReleaseIds.length - batchSize} remaining - refresh to continue.`
-            : 'Complete!';
-        
         updateJob(jobId, {
             status: 'complete',
-            currentStep: completionMessage,
-            progress: batchSize
+            currentStep: `Complete! Processed ${processedReleases.length} releases.`,
+            progress: newReleaseIds.length
         });
         updateProgress(jobId);
         
