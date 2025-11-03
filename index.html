@@ -538,6 +538,39 @@ body.dark-mode .table-container tbody tr {
   color: var(--text-color);
 }
 
+/* Align header/body and stabilize column widths */
+.table-container table.table thead th { white-space: nowrap; }
+.table-container table.table thead th,
+.table-container table.table tbody td { vertical-align: middle; }
+
+/* Column sizing by new order (1..13) */
+.table-container table.table thead th:nth-child(1),
+.table-container table.table tbody td:nth-child(1) { min-width: 220px; }
+.table-container table.table thead th:nth-child(2),
+.table-container table.table tbody td:nth-child(2) { min-width: 140px; }
+.table-container table.table thead th:nth-child(3),
+.table-container table.table tbody td:nth-child(3) { min-width: 140px; }
+.table-container table.table thead th:nth-child(4),
+.table-container table.table tbody td:nth-child(4) { width: 80px; }
+.table-container table.table thead th:nth-child(5),
+.table-container table.table tbody td:nth-child(5) { min-width: 180px; }
+.table-container table.table thead th:nth-child(6),
+.table-container table.table tbody td:nth-child(6) { width: 150px; }
+.table-container table.table thead th:nth-child(7),
+.table-container table.table tbody td:nth-child(7) { width: 130px; }
+.table-container table.table thead th:nth-child(8),
+.table-container table.table tbody td:nth-child(8) { width: 100px; }
+.table-container table.table thead th:nth-child(9),
+.table-container table.table tbody td:nth-child(9) { width: 110px; }
+.table-container table.table thead th:nth-child(10),
+.table-container table.table tbody td:nth-child(10) { width: 90px; }
+.table-container table.table thead th:nth-child(11),
+.table-container table.table tbody td:nth-child(11) { width: 90px; }
+.table-container table.table thead th:nth-child(12),
+.table-container table.table tbody td:nth-child(12) { width: 100px; }
+.table-container table.table thead th:nth-child(13),
+.table-container table.table tbody td:nth-child(13) { width: 240px; }
+
 .table-container tbody tr:hover {
   background-color: inherit !important;
 }
@@ -880,6 +913,22 @@ footer a:hover {
 
 /* Brand style for Add Seller button (without changing HTML) */
 .sellers-header .btn.btn-outline-primary {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+}
+
+/* Brand the Discogs developer link and Save Settings button in the settings modal */
+#settingsModal .modal-body a {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+  padding: 4px 10px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+#settingsModal .btn-primary {
   background-color: var(--accent-color) !important;
   border-color: var(--accent-color) !important;
   color: #000 !important;
