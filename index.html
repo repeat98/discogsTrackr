@@ -1861,6 +1861,15 @@ async function processSellerData(jobId, username, forceRefresh = false) {
                     page++;
                 } catch (error) {
                     console.error('Error fetching inventory page:', error);
+                    if (error.message.includes('Forbidden (403)')) {
+                        updateJob(jobId, { 
+                            status: 'error', 
+                            currentStep: 'Discogs API error 403: Check API credentials in Settings. If credentials are correct, you may have hit Discogs rate limits - wait 60 seconds and try again.' 
+                        });
+                        updateProgress(jobId);
+                        finishJob(jobId, username);
+                        return;
+                    }
                     if (error.message.includes('Rate limited')) {
                         updateJob(jobId, { currentStep: 'Rate limited, waiting...' });
                         updateProgress(jobId);
