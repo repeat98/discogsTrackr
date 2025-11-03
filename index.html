@@ -1562,13 +1562,14 @@ async function updateAllSellers() {
     if (!confirm('Update all sellers now? This will fetch latest inventories and update added/sold releases.')) {
         return;
     }
-    // Kick off all updates in parallel; the global request queue enforces 1 req/sec overall
-    const tasks = trackedSellers.map(seller => (
-        fetchSellerData(seller.username, true).catch(e => {
+    // Process sequentially to respect Discogs rate limits
+    for (const seller of trackedSellers) {
+        try {
+            await fetchSellerData(seller.username, true);
+        } catch (e) {
             console.error('Failed to update seller', seller.username, e);
-        })
-    ));
-    await Promise.allSettled(tasks);
+        }
+    }
 }
 
 function loadAllSellersData() {
