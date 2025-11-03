@@ -1194,6 +1194,28 @@ async function deleteSellerDataFromDB(username) {
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
+    // Clean up old job data on startup to free localStorage space
+    try {
+        const keys = Object.keys(localStorage);
+        const now = Date.now();
+        const MAX_JOB_AGE = 24 * 60 * 60 * 1000; // 24 hours
+        keys.forEach(key => {
+            if (key.startsWith('job_')) {
+                try {
+                    const job = JSON.parse(localStorage.getItem(key));
+                    if (job.createdAt && (now - job.createdAt > MAX_JOB_AGE)) {
+                        localStorage.removeItem(key);
+                    }
+                } catch (e) {
+                    // Invalid job data, remove it
+                    localStorage.removeItem(key);
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Failed to clean up old jobs:', e);
+    }
+    
     checkCredentials();
     
     // Dark mode toggle
@@ -1737,10 +1759,13 @@ function createJob(jobId, username) {
         progress: 0,
         total: 0,
         currentStep: 'Initializing...',
-        createdAt: Date.now(),
-        processedReleases: []
+        createdAt: Date.now()
     };
-    localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
+    try {
+        localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
+    } catch (e) {
+        console.error('Failed to store job in localStorage:', e);
+    }
     return job;
 }
 
@@ -1749,8 +1774,17 @@ function updateJob(jobId, updates) {
     if (!jobStr) return null;
     
     const job = JSON.parse(jobStr);
+    // Don't store processedReleases array to avoid quota issues
+    if (updates.processedReleases) {
+        delete updates.processedReleases;
+    }
     Object.assign(job, updates);
-    localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
+    try {
+        localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
+    } catch (e) {
+        console.error('Failed to update job in localStorage (quota exceeded):', e);
+        // Job will continue in memory even if we can't persist it
+    }
     return job;
 }
 
@@ -1956,8 +1990,7 @@ async function processSellerData(jobId, username, forceRefresh = false) {
                 
                 updateJob(jobId, {
                     progress: i + 1,
-                    currentStep: `Processing: ${i + 1} of ${newReleaseIds.length} new releases`,
-                    processedReleases
+                    currentStep: `Processing: ${i + 1} of ${newReleaseIds.length} new releases`
                 });
                 updateProgress(jobId);
                 
@@ -2012,10 +2045,7 @@ async function resumeJob(jobId, username) {
     const job = getJobFromStorage(jobId);
     if (!job) return;
     
-    if (job.processedReleases && job.processedReleases.length > 0) {
-        displayResults(job.processedReleases, true);
-    }
-    
+    // Job no longer stores processedReleases; just resume processing
     updateProgress(jobId);
     
     await processSellerData(jobId, username, false);
