@@ -1195,29 +1195,61 @@ async function deleteSellerDataFromDB(username) {
     }
 }
 
-// ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', async () => {
-    // Clean up old job data on startup to free localStorage space
+// ==================== STORAGE MANAGEMENT ====================
+function cleanupLocalStorage() {
     try {
         const keys = Object.keys(localStorage);
         const now = Date.now();
         const MAX_JOB_AGE = 24 * 60 * 60 * 1000; // 24 hours
+        let cleaned = 0;
+        
         keys.forEach(key => {
             if (key.startsWith('job_')) {
                 try {
                     const job = JSON.parse(localStorage.getItem(key));
                     if (job.createdAt && (now - job.createdAt > MAX_JOB_AGE)) {
                         localStorage.removeItem(key);
+                        cleaned++;
                     }
                 } catch (e) {
                     // Invalid job data, remove it
                     localStorage.removeItem(key);
+                    cleaned++;
                 }
             }
         });
+        
+        if (cleaned > 0) {
+            console.log(`Cleaned up ${cleaned} old job entries from localStorage`);
+        }
     } catch (e) {
         console.error('Failed to clean up old jobs:', e);
     }
+}
+
+function aggressiveCleanupLocalStorage() {
+    // Emergency cleanup: remove ALL job data
+    try {
+        const keys = Object.keys(localStorage);
+        let cleaned = 0;
+        keys.forEach(key => {
+            if (key.startsWith('job_')) {
+                localStorage.removeItem(key);
+                cleaned++;
+            }
+        });
+        console.log(`Emergency cleanup: removed ${cleaned} job entries`);
+        return cleaned > 0;
+    } catch (e) {
+        console.error('Failed aggressive cleanup:', e);
+        return false;
+    }
+}
+
+// ==================== INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', async () => {
+    // Clean up old job data on startup to free localStorage space
+    cleanupLocalStorage();
     
     checkCredentials();
     
@@ -1797,6 +1829,18 @@ function createJob(jobId, username) {
         localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
     } catch (e) {
         console.error('Failed to store job in localStorage:', e);
+        // Try emergency cleanup and retry once
+        if (e.name === 'QuotaExceededError') {
+            console.log('Attempting emergency cleanup...');
+            if (aggressiveCleanupLocalStorage()) {
+                try {
+                    localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
+                    console.log('Job stored after cleanup');
+                } catch (e2) {
+                    console.error('Still failed after cleanup:', e2);
+                }
+            }
+        }
     }
     return job;
 }
@@ -1837,8 +1881,13 @@ async function fetchSellerData(username, forceRefresh = false) {
     
     const jobId = 'job_' + Date.now();
     currentJobId = jobId;
-    localStorage.setItem('currentJobId', jobId);
-    localStorage.setItem('currentUsername', username);
+    
+    try {
+        localStorage.setItem('currentJobId', jobId);
+        localStorage.setItem('currentUsername', username);
+    } catch (e) {
+        console.warn('Could not store job metadata in localStorage:', e);
+    }
     
     const job = createJob(jobId, username);
     
@@ -2012,7 +2061,7 @@ async function processSellerData(jobId, username, forceRefresh = false) {
         
         for (let i = 0; i < newReleaseIds.length; i++) {
             const job = getJobFromStorage(jobId);
-            if (job.status === 'cancelled') {
+            if (job && job.status === 'cancelled') {
                 console.log('Job cancelled');
                 return;
             }
