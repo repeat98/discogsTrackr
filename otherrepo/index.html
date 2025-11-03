@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- This meta tag makes the site responsive on mobile devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gruuvs</title>
+
+    <!-- Favicon / App Icons -->
+    <!-- Apple Touch Icon -->
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="img/apple-touch-icon.png"
+    />
+    <!-- Standard Favicon (ICO) -->
+    <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon" />
+    <!-- PNG Favicons for Different Sizes -->
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="img/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="img/favicon-16x16.png"
+    />
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="img/site.webmanifest" />
+
+    <!-- Google Analytics 4 (GA4) Global Site Tag -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-WW50KM0VFQ"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-WW50KM0VFQ");
+    </script>
+    <!-- End GA4 -->
+
+    <!-- PapaParse -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    
+
+    <meta property="og:title" content="Gruuvs" />
+    <meta
+      property="og:description"
+      content="Gruuvs – a new interface for Discogs"
+    />
+    <meta
+      property="og:image"
+      content="https://raw.githubusercontent.com/repeat98/repeat98.github.io/refs/heads/main/img/screen.jpg"
+    />
+    <meta property="og:url" content="https://repeat98.github.io/" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts (Figtree) -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Bootstrap CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    />
+    <!-- Bootstrap Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+    />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Supabase Client Library -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"
+    ></script>
+  </head>
+  <!-- Default dark-mode added to body -->
+  <body class="dark-mode">
+    <div class="Desktop">
+      <!-- Navbar -->
+      <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container MainContainer">
+          <div class="d-flex justify-content-between align-items-center w-100">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+              <img
+                src="img/gruuvs-logo.svg"
+                alt="Gruuvs Logo"
+                class="me-2"
+                style="height: 24px; width: auto"
+              />
+              GRUUVS
+              <span
+                class="powered-by d-none d-md-inline fst-italic fw-light ms-1"
+                style="opacity: 0.8; font-size: 12px"
+              >
+                powered by Discogs
+              </span>
+            </a>
+            <div class="right-toggle-group d-flex align-items-center">
+              <div class="tab-toggle d-flex align-items-center">
+                <!-- The search tab: input grows left while icon stays on the right -->
+                <span id="tab-search" class="tab-icon active">
+                  <input type="text" id="searchInput" placeholder="Search..." />
+                  <i class="bi bi-search"></i>
+                </span>
+                <span id="tab-shuffle" class="tab-icon">
+                  <i class="bi bi-shuffle"></i>
+                </span>
+                <!-- New Bookmark tab -->
+                <span id="tab-bookmark" class="tab-icon">
+                  <i class="bi bi-bookmark"></i>
+                </span>
+                <!-- Artists tab -->
+                <span id="tab-artists" class="tab-icon">
+                  <i class="bi bi-people"></i>
+                </span>
+                <!-- Labels tab -->
+                <span id="tab-labels" class="tab-icon">
+                  <i class="bi bi-building"></i>
+                </span>
+              </div>
+              <div class="dark-mode-toggle">
+                <span id="darkModeToggle">
+                  <span class="moon-icon"><i class="bi bi-moon"></i></span>
+                  <span class="sun-icon"><i class="bi bi-sun"></i></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Filter form full-width wrapper (visible in all tabs now) -->
+      <div class="filter-form-wrapper" id="filter-wrapper">
+        <div class="container MainContainer">
+          <form id="filter-form" class="FilterContainer">
+            <!-- Genre -->
+            <div class="filter-group">
+              <label for="genre" class="filter-label">Genre</label>
+              <select
+                id="genre"
+                name="genre"
+                class="filter-select"
+                aria-label="Filter by Genre"
+              >
+                <option value="">All Genres</option>
+              </select>
+            </div>
+            <!-- Style -->
+            <div class="filter-group">
+              <label for="style" class="filter-label">Style</label>
+              <select
+                id="style"
+                name="style"
+                class="filter-select"
+                aria-label="Filter by Style"
+              >
+                <option value="">All Styles</option>
+              </select>
+            </div>
+            <!-- Mobile extra filters toggle button (only visible on mobile) -->
+            <button
+              type="button"
+              id="mobile-filters-toggle"
+              class="btn btn-secondary mobile-toggle-btn"
+            >
+              <i class="bi bi-chevron-down"></i>
+            </button>
+            <!-- Extra filters wrapped (year, rating, count, price) -->
+            <div class="mobile-extra-filters-wrapper">
+              <!-- Year range -->
+              <div class="filter-group">
+                <label for="year_range" class="filter-label">Year range</label>
+                <input
+                  type="text"
+                  id="year_range"
+                  name="year_range"
+                  class="filter-input"
+                  placeholder="e.g. 2010-2015"
+                />
+              </div>
+              <!-- Rating range -->
+              <div class="filter-group">
+                <label for="rating_range" class="filter-label">Rating range</label>
+                <input
+                  type="text"
+                  id="rating_range"
+                  name="rating_range"
+                  class="filter-input"
+                  placeholder="e.g. 3-5"
+                />
+              </div>
+              <!-- Rating Count range -->
+              <div class="filter-group">
+                <label for="rating_count_range" class="filter-label">Rating Count range</label>
+                <input
+                  type="text"
+                  id="rating_count_range"
+                  name="rating_count_range"
+                  class="filter-input"
+                  placeholder="e.g. 10-100"
+                />
+              </div>
+              <!-- Price range -->
+              <div class="filter-group">
+                <label for="price_range" class="filter-label">Price range</label>
+                <input
+                  type="text"
+                  id="price_range"
+                  name="price_range"
+                  class="filter-input"
+                  placeholder="e.g. 10-25"
+                />
+              </div>
+            </div>
+            <!-- Filter and Shuffle buttons -->
+            <div class="filter-button-group d-flex align-items-center gap-2">
+              <button type="submit" class="btn btn-primary filter-btn">
+                <i class="bi bi-funnel-fill"></i> Filter
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary shuffle-btn"
+                id="shuffle-btn"
+                style="display: none"
+              >
+                <i class="bi bi-shuffle"></i> Shuffle
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Bookmark Actions: Export and Import Discogs (placed below the filter box) -->
+      <div class="container MainContainer" id="bookmark-actions" style="display: none">
+        <div class="d-flex justify-content-end gap-2 mb-2">
+          <button id="export-btn" class="btn btn-primary">
+            <i class="bi bi-download"></i> Export Discogs Data
+          </button>
+          <button id="import-discogs-btn" class="btn btn-secondary">
+            <i class="bi bi-upload"></i> Import Discogs Collection
+          </button>
+          <!-- Hidden file inputs for importing and exporting -->
+          <input type="file" id="import-discogs-file" accept=".csv" style="display: none" />
+        </div>
+      </div>
+
+      <!-- Main Content container for table and pagination -->
+      <div class="container MainContainer" style="position: relative">
+        <!-- Results Count -->
+        <div class="d-flex justify-content-between align-items-center mb-2" style="margin-top: 1rem">
+          <div id="results-count" class="fw-semibold">
+            <!-- dynamically updated -->
+          </div>
+        </div>
+
+        <!-- Mobile Sorting Options (only visible on mobile) -->
+        <div id="mobile-sort-dropdown">
+          <select id="mobile-sort-select">
+            <option value="title">Title</option>
+            <option value="rating_coeff">Rating</option>
+            <option value="demand_coeff">Rarity</option>
+            <option value="gem_value">Gem</option>
+            <option value="have">Have</option>
+            <option value="want">Want</option>
+            <option value="lowest_price">Price</option>
+          </select>
+          <button id="mobile-sort-toggle" title="Toggle sort order">
+            <i class="bi bi-arrow-up"></i>
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+          <table class="table table-hover table-bordered mb-0">
+            <thead id="table-header">
+              <!-- Headers will be dynamically inserted based on active tab -->
+            </thead>
+            <tbody id="releases-table-body">
+              <!-- Rows inserted dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination (only visible for Search and Bookmark tabs) -->
+        <div class="pagination-container">
+          <ul class="pagination" id="pagination">
+            <li class="page-item disabled">
+              <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Prev</a>
+            </li>
+            <li class="page-item active" aria-current="page">
+              <a class="page-link" href="#">1</a>
+            </li>
+            <li class="page-item"><a class="page-link" href="#">2</a></li>
+            <li class="page-item">
+              <a class="page-link" href="#">Next</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <footer class="text-center py-3">
+      <small>
+        <a href="discogs.html" style="color: inherit; text-decoration: none">
+          &copy; 2025 - Jannik Aßfalg
+        </a>
+        <br />
+        <a
+          href="imprint.html"
+          style="color: inherit; text-decoration: none; opacity: 0.7"
+        >
+          Impressum
+        </a>
+        |
+        <a
+          href="privacy.html"
+          style="color: inherit; text-decoration: none; opacity: 0.7"
+        >
+          Datenschutzerklärung
+        </a>
+      </small>
+    </footer>
+
+    <!-- Cookie Popup -->
+    <div id="cookie-popup" class="cookie-popup">
+      <p>
+        We use cookies to improve your experience on our site. By using our
+        site, you agree to our <a href="privacy.html">Privacy Policy</a>.
+      </p>
+      <button id="cookie-accept-btn" class="cookie-accept-btn">Accept</button>
+    </div>
+
+    <!-- Define onYouTubeIframeAPIReady before loading the Iframe API -->
+    <script>
+      function onYouTubeIframeAPIReady() {
+        youtubeApiReady = true;
+        initializeYouTubePlayers();
+      }
+    </script>
+    <!-- YouTube Iframe API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- Bootstrap JS (with Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Main JS -->
+    <script src="script.js"></script>
+  </body>
+</html>

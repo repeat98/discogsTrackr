@@ -863,6 +863,85 @@ footer a {
 footer a:hover {
   opacity: 0.8;
 }
+/* Improve muted text contrast on current backgrounds */
+.text-muted {
+  color: var(--text-color) !important;
+  opacity: 0.7 !important;
+}
+
+/* Brand style for Add Seller button (without changing HTML) */
+.sellers-header .btn.btn-outline-primary {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+}
+/* -----------------------
+   SEARCH TO THE RIGHT (CSS-only)
+------------------------- */
+@media (min-width: 769px) {
+  /* Push the search group to the far right without changing HTML */
+  .FilterContainer .filter-group:has(> #text_search) {
+    order: 99;
+    margin-left: auto;
+    max-width: 320px;
+  }
+}
+
+/* -----------------------
+   TABLE COLUMN REORDER (CSS-only)
+   Move Seller column to the right of Rating
+   Original order (1..13):
+   1 Seller, 2 Title, 3 Artist, 4 Label, 5 Year, 6 Genre/Style, 7 Rating,
+   8 Rarity, 9 #Ratings, 10 Have, 11 Want, 12 Price, 13 Videos
+   New visual order: 2,3,4,5,6,7,1,8,9,10,11,12,13
+------------------------- */
+.table-container thead tr,
+.table-container tbody tr {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) /* Title */
+                         minmax(120px, 0.8fr) /* Artist */
+                         minmax(120px, 0.8fr) /* Label */
+                         minmax(60px, auto)   /* Year */
+                         minmax(160px, 1fr)   /* Genre/Style */
+                         minmax(120px, auto)  /* Rating */
+                         minmax(110px, auto)  /* Seller (moved) */
+                         minmax(90px, auto)   /* Rarity */
+                         minmax(100px, auto)  /* # Ratings */
+                         minmax(80px, auto)   /* Have */
+                         minmax(80px, auto)   /* Want */
+                         minmax(90px, auto)   /* Price */
+                         minmax(200px, 1fr);  /* Videos */
+  align-items: stretch;
+}
+
+/* Header remap */
+.table-container thead tr th { margin: 0; }
+.table-container thead tr th:nth-child(1) { grid-column: 7; }
+.table-container thead tr th:nth-child(2) { grid-column: 1; }
+.table-container thead tr th:nth-child(3) { grid-column: 2; }
+.table-container thead tr th:nth-child(4) { grid-column: 3; }
+.table-container thead tr th:nth-child(5) { grid-column: 4; }
+.table-container thead tr th:nth-child(6) { grid-column: 5; }
+.table-container thead tr th:nth-child(7) { grid-column: 6; }
+/* th 8..13 keep their natural order */
+
+/* Body remap */
+.table-container tbody tr td { margin: 0; }
+.table-container tbody tr td:nth-child(1) { grid-column: 7; }
+.table-container tbody tr td:nth-child(2) { grid-column: 1; }
+.table-container tbody tr td:nth-child(3) { grid-column: 2; }
+.table-container tbody tr td:nth-child(4) { grid-column: 3; }
+.table-container tbody tr td:nth-child(5) { grid-column: 4; }
+.table-container tbody tr td:nth-child(6) { grid-column: 5; }
+.table-container tbody tr td:nth-child(7) { grid-column: 6; }
+/* td 8..13 keep their natural order */
+
+/* Keep spacing and hover behavior intact with grid */
+.table-container tbody tr { gap: 0; }
+.table-container thead tr { gap: 0; }
+
+/* Horizontal scroll still supported */
+.table-container { overflow-x: auto; }
     </style>
 </head>
 <body class="dark-mode">
@@ -1000,7 +1079,7 @@ footer a:hover {
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted small">Enter your Discogs API credentials. <a href="https://www.discogs.com/settings/developers" target="_blank">Get them here</a>.</p>
+                    <p class="text-muted small">Create an application in the Discogs Developer settings, then copy the Consumer Key and Consumer Secret into the fields below. <a href="https://www.discogs.com/settings/developers" target="_blank">Open Discogs Developer settings</a>.</p>
                     <div class="mb-3">
                         <label for="consumerKey" class="form-label">Consumer Key</label>
                         <input type="text" class="form-control" id="consumerKey" placeholder="Your consumer key">
