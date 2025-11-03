@@ -1986,6 +1986,17 @@ async function processSellerData(jobId, username, forceRefresh = false) {
             // Save inventory
             seller.inventory = allListings;
             await saveSellerDataToDB(seller);
+            
+            // If we fetched close to 100 pages, add a cooldown before processing releases
+            if (page >= 95) {
+                const cooldownSeconds = 60;
+                updateJob(jobId, { 
+                    currentStep: `Cooling down for ${cooldownSeconds}s after ${page} page fetches...` 
+                });
+                updateProgress(jobId);
+                console.log(`Mandatory ${cooldownSeconds}s cooldown after fetching ${page} inventory pages`);
+                await new Promise(resolve => setTimeout(resolve, cooldownSeconds * 1000));
+            }
         }
         
         if (allListings.length === 0) {
@@ -2058,6 +2069,7 @@ async function processSellerData(jobId, username, forceRefresh = false) {
         
         // Fetch details for new releases
         const processedReleases = [...existingReleases];
+        let release403Count = 0;
         
         for (let i = 0; i < newReleaseIds.length; i++) {
             const job = getJobFromStorage(jobId);
@@ -2121,11 +2133,26 @@ async function processSellerData(jobId, username, forceRefresh = false) {
             } catch (error) {
                 console.error(`Error fetching details for release ${releaseId} (${i + 1}/${newReleaseIds.length}):`, error);
                 if (error.message.includes('Forbidden (403)')) {
-                    // This shouldn't happen during release details phase if credentials are correct
-                    console.warn('Unexpected 403 during release details fetch. Stopping processing.');
+                    release403Count++;
+                    
+                    // Allow up to 3 retries with increasing backoff (likely rate limit, not auth issue)
+                    if (release403Count <= 3) {
+                        const waitTime = 60 * release403Count; // 60s, 120s, 180s
+                        console.warn(`403 during release fetch (#${release403Count}). Waiting ${waitTime}s before retry...`);
+                        updateJob(jobId, { 
+                            currentStep: `Rate limited (403), cooling down ${waitTime}s... (retry ${release403Count}/3)` 
+                        });
+                        updateProgress(jobId);
+                        await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+                        i--; // Retry this release
+                        continue;
+                    }
+                    
+                    // After 3 failed attempts, stop and save progress
+                    console.warn('Too many 403 errors. Stopping processing and saving progress.');
                     updateJob(jobId, { 
-                        status: 'error', 
-                        currentStep: `403 error at release ${i + 1}/${newReleaseIds.length}. Processed ${processedReleases.length} releases. Check API credentials.` 
+                        status: 'complete', 
+                        currentStep: `Processed ${processedReleases.length}/${releaseIds.length} releases (hit rate limit)` 
                     });
                     updateProgress(jobId);
                     
@@ -2140,7 +2167,7 @@ async function processSellerData(jobId, username, forceRefresh = false) {
                     return;
                 }
                 if (error.message.includes('Rate limited')) {
-                    updateJob(jobId, { currentStep: `Rate limited, waiting 60s... (${i + 1}/${newReleaseIds.length})` });
+                    updateJob(jobId, { currentStep: `Rate limited (429), waiting 60s... (${i + 1}/${newReleaseIds.length})` });
                     updateProgress(jobId);
                     await new Promise(resolve => setTimeout(resolve, 60000));
                     i--;
