@@ -1987,15 +1987,10 @@ async function processSellerData(jobId, username, forceRefresh = false) {
             seller.inventory = allListings;
             await saveSellerDataToDB(seller);
             
-            // If we fetched close to 100 pages, add a cooldown before processing releases
-            if (page >= 95) {
-                const cooldownSeconds = 60;
-                updateJob(jobId, { 
-                    currentStep: `Cooling down for ${cooldownSeconds}s after ${page} page fetches...` 
-                });
-                updateProgress(jobId);
-                console.log(`Mandatory ${cooldownSeconds}s cooldown after fetching ${page} inventory pages`);
-                await new Promise(resolve => setTimeout(resolve, cooldownSeconds * 1000));
+            // If we fetched 100+ pages, we've likely exhausted rate limits
+            // Just process a small batch and let user refresh later for more
+            if (page >= 100) {
+                console.log(`Fetched ${page} pages - will process in batches to avoid rate limits`);
             }
         }
         
@@ -2060,18 +2055,23 @@ async function processSellerData(jobId, username, forceRefresh = false) {
             return;
         }
         
+        // Limit batch size if we just fetched a lot of inventory pages
+        const MAX_BATCH_SIZE = 50; // Process max 50 new releases per run
+        const batchSize = Math.min(newReleaseIds.length, MAX_BATCH_SIZE);
+        const isPartialBatch = batchSize < newReleaseIds.length;
+        
         updateJob(jobId, {
-            total: newReleaseIds.length,
+            total: batchSize,
             progress: 0,
-            currentStep: `Fetching details for ${newReleaseIds.length} new releases...`
+            currentStep: `Fetching details for ${batchSize}${isPartialBatch ? ` of ${newReleaseIds.length}` : ''} new releases...`
         });
         updateProgress(jobId);
         
-        // Fetch details for new releases
+        // Fetch details for new releases (batch only)
         const processedReleases = [...existingReleases];
         let release403Count = 0;
         
-        for (let i = 0; i < newReleaseIds.length; i++) {
+        for (let i = 0; i < batchSize; i++) {
             const job = getJobFromStorage(jobId);
             if (job && job.status === 'cancelled') {
                 console.log('Job cancelled');
@@ -2133,26 +2133,11 @@ async function processSellerData(jobId, username, forceRefresh = false) {
             } catch (error) {
                 console.error(`Error fetching details for release ${releaseId} (${i + 1}/${newReleaseIds.length}):`, error);
                 if (error.message.includes('Forbidden (403)')) {
-                    release403Count++;
-                    
-                    // Allow up to 3 retries with increasing backoff (likely rate limit, not auth issue)
-                    if (release403Count <= 3) {
-                        const waitTime = 60 * release403Count; // 60s, 120s, 180s
-                        console.warn(`403 during release fetch (#${release403Count}). Waiting ${waitTime}s before retry...`);
-                        updateJob(jobId, { 
-                            currentStep: `Rate limited (403), cooling down ${waitTime}s... (retry ${release403Count}/3)` 
-                        });
-                        updateProgress(jobId);
-                        await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
-                        i--; // Retry this release
-                        continue;
-                    }
-                    
-                    // After 3 failed attempts, stop and save progress
-                    console.warn('Too many 403 errors. Stopping processing and saving progress.');
+                    // Hit rate limit - stop immediately and save progress
+                    console.warn(`Hit 403 at release ${i + 1}/${batchSize}. Rate limit exhausted.`);
                     updateJob(jobId, { 
                         status: 'complete', 
-                        currentStep: `Processed ${processedReleases.length}/${releaseIds.length} releases (hit rate limit)` 
+                        currentStep: `Processed ${processedReleases.length} releases. Hit rate limit - refresh seller later to continue.` 
                     });
                     updateProgress(jobId);
                     
@@ -2183,10 +2168,14 @@ async function processSellerData(jobId, username, forceRefresh = false) {
         await saveSellerDataToDB(seller);
         updateSellerList();
         
+        const completionMessage = isPartialBatch 
+            ? `Processed ${batchSize} releases. ${newReleaseIds.length - batchSize} remaining - refresh to continue.`
+            : 'Complete!';
+        
         updateJob(jobId, {
             status: 'complete',
-            currentStep: 'Complete!',
-            progress: newReleaseIds.length
+            currentStep: completionMessage,
+            progress: batchSize
         });
         updateProgress(jobId);
         
