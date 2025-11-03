@@ -1012,7 +1012,6 @@ function renderTable() {
   if (activeTab !== 'entity') entityDetail = null; // keep entity context during drill-down
   const isMobile = window.innerWidth <= 768;
   const tbody = document.getElementById("releases-table-body");
-  tbody.innerHTML = "";
   document.getElementById("results-count").textContent = `Showing ${totalRecords} result(s)`;
   if (filteredData.length === 0) {
     tbody.innerHTML = `<tr><td class="no-results" colspan="12">
@@ -1021,12 +1020,35 @@ function renderTable() {
         </td></tr>`;
     return;
   }
+  // Preserve existing rows (and their iframe state) and only create rows for new releases
+  const existingRows = new Map();
+  tbody.querySelectorAll('tr[data-id]').forEach((row) => {
+    const rid = row.getAttribute('data-id');
+    if (rid) existingRows.set(rid, row);
+  });
+
+  const currentIds = new Set(filteredData.map(r => String(r.id)));
+  // Remove rows not in the current dataset
+  existingRows.forEach((row, rid) => {
+    if (!currentIds.has(rid)) {
+      row.remove();
+      existingRows.delete(rid);
+    }
+  });
+
+  // Append rows in correct order; create if missing, keep existing untouched to avoid iframe reloads
   filteredData.forEach((release) => {
     const tr = document.createElement("tr");
     tr.setAttribute("data-id", release.id);
     const interactedReleases = JSON.parse(localStorage.getItem("interactedReleases")) || [];
     if (interactedReleases.includes(release.id)) {
       tr.classList.add("greyed-out");
+    }
+    let row = existingRows.get(String(release.id));
+    if (row) {
+      // Reuse existing row (preserve iframe); move it to correct position
+      tbody.appendChild(row);
+      return;
     }
     const tdBookmark = document.createElement("td");
     tdBookmark.className = "text-center";
