@@ -555,13 +555,13 @@ body.dark-mode .table-container tbody tr {
 .table-container table.table thead th:nth-child(5),
 .table-container table.table tbody td:nth-child(5) { min-width: 180px; }
 .table-container table.table thead th:nth-child(6),
-.table-container table.table tbody td:nth-child(6) { width: 150px; }
+.table-container table.table tbody td:nth-child(6) { width: 170px; white-space: nowrap; }
 .table-container table.table thead th:nth-child(7),
 .table-container table.table tbody td:nth-child(7) { width: 130px; }
 .table-container table.table thead th:nth-child(8),
 .table-container table.table tbody td:nth-child(8) { width: 100px; }
 .table-container table.table thead th:nth-child(9),
-.table-container table.table tbody td:nth-child(9) { width: 110px; }
+.table-container table.table tbody td:nth-child(9) { width: 130px; white-space: nowrap; }
 .table-container table.table thead th:nth-child(10),
 .table-container table.table tbody td:nth-child(10) { width: 90px; }
 .table-container table.table thead th:nth-child(11),
@@ -700,6 +700,7 @@ a:hover {
   border-radius: 4px;
   width: 220px;
   height: 124px;
+  display: block; /* remove baseline gap */
 }
 
 .youtube-preview {
@@ -768,7 +769,13 @@ a:hover {
 
 .video-nav {
   width: 220px;
+  margin: 2px auto 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
+.video-carousel { margin: 0 auto; }
+.video-nav .btn { width: 34px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center; }
 
 .video-counter {
   font-size: 0.75rem;
@@ -787,9 +794,16 @@ a:hover {
 .rating-inline {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   white-space: nowrap;
 }
+/* tighten spacing between star icons and text only inside rating */
+.rating-inline i.bi-star,
+.rating-inline i.bi-star-fill,
+.rating-inline i.bi-star-half { margin-right: 2px; }
+.rating-inline i.bi-star:last-of-type,
+.rating-inline i.bi-star-fill:last-of-type,
+.rating-inline i.bi-star-half:last-of-type { margin-right: 0; }
 
 th[data-sort-key] {
   cursor: pointer;
