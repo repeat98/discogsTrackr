@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+
+# Database (not needed for GitHub Pages version)
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables (not needed for GitHub Pages version)
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Old backend files (optional - can be kept for reference)
+# Uncomment these if you want to exclude backend files from GitHub Pages
+# app.py
+# database.py
+# discogs_seller_releases.py
+# migrate_database.py
+# fix_stuck_job.py
+# requirements.txt
+# runtime.txt
+# Procfile
+# start.sh

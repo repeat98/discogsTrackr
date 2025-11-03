@@ -1,0 +1,2630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discogs Seller Tracker - Best Rated Releases</title>
+    
+    <!-- Google Fonts (Figtree) -->
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
+    <!-- YouTube Iframe API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    
+    <style>
+/* -----------------------
+   LIGHT THEME (DEFAULT)
+------------------------- */
+:root {
+  --bg-color: #E0E0E0;
+  --card-bg: #C9C9C9;
+  --text-color: #1F1F1F;
+  --border-color: #d5d7da;
+  --primary-color: #C9C9C9;
+  --table-header-bg: #C9C9C9;
+  --table-header-text: #1F1F1F;
+  --badge-genre-bg: #afafaf;
+  --badge-genre-text: var(--text-color);
+  --badge-style-bg: #c1c1c1;
+  --badge-style-text: var(--text-color);
+  --input-bg: #C9C9C9;
+  --input-border: #d5d7da;
+  --input-focus: #E7FF6E;
+  --btn-primary-bg: #1a202c;
+  --btn-primary-hover-bg: #2a2a2a;
+  --transition-speed: 0.3s;
+  --accent-color: #E7FF6E;
+}
+
+/* -----------------------
+   DARK THEME
+------------------------- */
+body.dark-mode {
+  --bg-color: #1F1F1F;
+  --card-bg: #2D2D2D;
+  --text-color: #ffffff;
+  --border-color: #333;
+  --primary-color: #2D2D2D;
+  --table-header-bg: #3A3A3A;
+  --table-header-text: #ffffff;
+  --badge-genre-bg: #696969;
+  --badge-genre-text: var(--text-color);
+  --badge-style-bg: #3f3f3f;
+  --badge-style-text: var(--text-color);
+  --input-bg: #2D2D2D;
+  --input-border: #555;
+  --input-focus: #E7FF6E;
+  --btn-primary-bg: #1a202c;
+  --btn-primary-hover-bg: #2a2a2a;
+}
+
+/* -----------------------
+   BASE STYLES
+------------------------- */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  min-height: 100vh;
+  height: 100%;
+  overscroll-behavior: contain;
+  font-family: "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: var(--text-color);
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--bg-color);
+  z-index: -999;
+}
+
+.Desktop {
+  position: relative;
+  min-height: 100vh;
+  background: var(--bg-color);
+}
+
+.MainContainer {
+  margin: 0 auto;
+  max-width: 1400px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* -----------------------
+   NAVBAR
+------------------------- */
+.navbar {
+  background-color: var(--primary-color) !important;
+  padding: 12px 0;
+}
+
+.navbar-brand {
+  font-weight: bold;
+  font-size: 18px;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.powered-by {
+  opacity: 0.8;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 300;
+}
+
+/* Dark mode toggle */
+.dark-mode-toggle {
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.dark-mode-toggle span {
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: var(--text-color);
+}
+
+.dark-mode-toggle .moon-icon {
+  display: inline;
+}
+
+.dark-mode-toggle .sun-icon {
+  display: none;
+}
+
+body.dark-mode .moon-icon {
+  display: none;
+}
+
+body.dark-mode .sun-icon {
+  display: inline;
+}
+
+/* Settings Icon */
+.settings-icon {
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: var(--text-color);
+  margin-left: 16px;
+  transition: transform 0.3s;
+}
+
+.settings-icon:hover {
+  transform: rotate(45deg);
+}
+
+/* -----------------------
+   SEARCH INPUT IN NAVBAR
+------------------------- */
+.search-input-wrapper {
+  flex: 1;
+  max-width: 400px;
+  margin: 0 16px;
+}
+
+.search-input-wrapper input {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text-color);
+  transition: border-color var(--transition-speed);
+}
+
+.search-input-wrapper input::placeholder {
+  color: var(--text-color);
+  opacity: 0.5;
+}
+
+.search-input-wrapper input:focus {
+  outline: none;
+  border-color: var(--input-focus);
+  box-shadow: 0 0 5px var(--input-focus);
+}
+
+/* -----------------------
+   SELLERS SIDEBAR
+------------------------- */
+.sellers-sidebar {
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.sellers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sellers-header .chips {
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sellers-sidebar.collapsed .seller-list {
+  display: none;
+}
+
+.sellers-sidebar.collapsed .sellers-header .chips {
+  display: flex;
+}
+
+.selected-chip {
+  background: var(--table-header-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.seller-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seller-item {
+  padding: 8px 12px;
+  background: var(--input-bg);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: opacity 0.2s;
+  width: calc(50% - 4px);
+}
+
+@media (max-width: 768px) {
+  .seller-item { width: 100%; }
+}
+
+.seller-item:hover {
+  opacity: 0.8;
+}
+
+.seller-item.active {
+  border: 2px solid var(--accent-color);
+  background: var(--table-header-bg);
+}
+
+.seller-item.processing {
+  border: 2px solid var(--accent-color);
+}
+
+.seller-info {
+  flex: 1;
+}
+
+.seller-name {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.seller-meta {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.seller-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.seller-actions button {
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+/* -----------------------
+   SELLER PROGRESS
+------------------------- */
+.seller-progress {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.seller-progress-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--bg-color);
+  overflow: hidden;
+  position: relative;
+}
+
+.seller-progress-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+}
+
+.seller-progress-text {
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--text-color);
+  opacity: 0.8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+/* -----------------------
+   FILTER FORM
+------------------------- */
+.filter-form-wrapper {
+  width: 100%;
+  background: var(--card-bg);
+  padding: 8px 0;
+  margin-top: 8px;
+}
+
+.FilterContainer {
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 8px;
+  transition: background-color var(--transition-speed);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.filter-group {
+  position: relative;
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-label {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  color: var(--text-color);
+}
+
+.filter-input,
+.filter-select {
+  width: 100%;
+  background: var(--input-bg);
+  box-shadow: 0px 1px 2px rgba(10, 12, 18, 0.05);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-color);
+  padding: 8px 10px;
+  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+  min-height: 36px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.filter-input::placeholder {
+  color: var(--text-color);
+  opacity: 0.5;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: var(--input-focus);
+  box-shadow: 0 0 5px var(--input-focus);
+}
+
+.filter-button-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.filter-btn,
+.shuffle-btn {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.3s;
+  border: none;
+}
+
+.filter-btn:hover,
+.shuffle-btn:hover {
+  opacity: 0.8;
+}
+
+/* -----------------------
+   PROGRESS SECTION
+------------------------- */
+.progress-section {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: none;
+}
+
+.progress-section.active {
+  display: block;
+}
+
+.progress-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: var(--text-color);
+}
+
+.progress-bar-container {
+  background: var(--bg-color);
+  border-radius: 10px;
+  height: 30px;
+  overflow: hidden;
+  margin: 15px 0;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  height: 100%;
+  width: 0%;
+  transition: width 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.status-message {
+  color: var(--text-color);
+  opacity: 0.8;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+/* -----------------------
+   TABLE STYLES
+------------------------- */
+.table-container {
+  border-radius: 0;
+  overflow: visible;
+  background: var(--bg-color);
+  transition: background-color var(--transition-speed);
+}
+
+.table-container table.table {
+  border-collapse: separate !important;
+  border-spacing: 0 8px !important;
+  background: transparent !important;
+  width: 100%;
+}
+
+.table-container thead tr th {
+  background-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+  border: none;
+  text-transform: uppercase;
+  opacity: 0.85;
+  font-weight: normal;
+  font-size: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  position: relative;
+}
+
+body.dark-mode .table-container thead tr th {
+  color: #cccccc !important;
+}
+
+.table-container tbody tr {
+  background-color: var(--card-bg) !important;
+  border: none;
+  transition: background-color var(--transition-speed);
+}
+
+body.dark-mode .table-container tbody tr {
+  background-color: #2D2D2D !important;
+}
+
+.table-container tbody tr td {
+  background-color: transparent !important;
+  vertical-align: middle;
+  font-size: 12px;
+  padding: 16px;
+  border: none;
+  color: var(--text-color);
+}
+
+.table-container tbody tr:hover {
+  background-color: inherit !important;
+}
+
+/* -----------------------
+   BADGES
+------------------------- */
+.badge-genre,
+.badge-style {
+  border-radius: 16px;
+  padding: 2px 8px;
+  font-size: 12px;
+  display: inline-block;
+  white-space: nowrap;
+  margin: 4px 4px 0 0;
+}
+
+.badge-genre {
+  background: var(--badge-genre-bg) !important;
+  color: var(--badge-genre-text) !important;
+}
+
+.badge-style {
+  background: var(--badge-style-bg) !important;
+  color: var(--badge-style-text) !important;
+}
+
+/* -----------------------
+   PAGINATION
+------------------------- */
+.pagination-container {
+  width: 100%;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.pagination {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pagination .page-item {
+  display: inline-block !important;
+  margin: 0;
+  padding: 0;
+}
+
+.pagination .page-link {
+  border-radius: 0 !important;
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  padding: 0.375rem 0.75rem;
+  text-decoration: none;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.pagination .page-item:not(.disabled) .page-link:hover {
+  background-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+}
+
+.page-item.active .page-link {
+  background-color: var(--table-header-bg) !important;
+  border-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+}
+
+/* -----------------------
+   STARS & RATINGS
+------------------------- */
+.table tbody tr td i.bi-star,
+.table tbody tr td i.bi-star-fill,
+.table tbody tr td i.bi-star-half {
+  color: var(--accent-color) !important;
+}
+
+/* -----------------------
+   LINKS
+------------------------- */
+a,
+a:visited,
+a:hover,
+a:focus,
+a:active,
+.text-primary {
+  color: var(--text-color) !important;
+  text-decoration: none;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+/* -----------------------
+   NO RESULTS
+------------------------- */
+.no-results {
+  text-align: center;
+  padding: 2rem 0;
+  color: var(--text-color);
+}
+
+.no-results i {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+/* -----------------------
+   LOADING SPINNER
+------------------------- */
+.spinner-border {
+  color: var(--accent-color) !important;
+}
+
+/* -----------------------
+   YOUTUBE IFRAME & PREVIEW
+------------------------- */
+.table-iframe {
+  border-radius: 4px;
+  width: 220px;
+  height: 124px;
+}
+
+.youtube-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.youtube-player-container {
+  margin-top: 8px;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.release-link {
+  font-weight: 500;
+  text-decoration: none !important;
+  transition: opacity 0.2s;
+}
+
+.release-link:hover {
+  opacity: 0.7;
+}
+
+.table-container tbody tr td:first-child {
+  font-weight: 500;
+  max-width: 300px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+@media (max-width: 1200px) {
+  .table-container {
+    overflow-x: scroll;
+  }
+  
+  .table-container table {
+    min-width: 1400px;
+  }
+}
+
+.video-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.video-links .btn {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  text-align: left;
+}
+
+.video-carousel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.video-nav {
+  width: 220px;
+}
+
+.video-counter {
+  font-size: 0.75rem;
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
+.sort-indicator {
+  margin-left: 4px;
+  font-size: 0.8em;
+  float: right;
+}
+
+th[data-sort-key] {
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+}
+
+th[data-sort-key]:hover {
+  opacity: 0.8;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.dark-mode th[data-sort-key]:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+#results-count {
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Modal styling */
+.modal-content {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-color);
+}
+
+.form-control {
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--input-border);
+}
+
+.form-control:focus {
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border-color: var(--input-focus);
+  box-shadow: 0 0 5px var(--input-focus);
+}
+
+.form-label {
+  color: var(--text-color);
+}
+
+.btn-close {
+  filter: invert(1);
+}
+
+body.dark-mode .btn-close {
+  filter: invert(0);
+}
+
+/* -----------------------
+   MOBILE RESPONSIVENESS
+------------------------- */
+@media (max-width: 768px) {
+  .FilterContainer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-button-group {
+    margin-top: 10px;
+    position: static;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .search-input-wrapper {
+    max-width: 100%;
+    margin: 8px 0;
+  }
+
+  .MainContainer {
+    padding: 8px;
+  }
+
+  .navbar-brand {
+    font-size: 16px;
+  }
+
+  .powered-by {
+    display: none;
+  }
+}
+
+/* -----------------------
+   FOOTER
+------------------------- */
+footer {
+  margin-top: 2rem;
+  padding: 1rem 0;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+footer a {
+  color: var(--text-color) !important;
+  text-decoration: none;
+}
+
+footer a:hover {
+  opacity: 0.8;
+}
+    </style>
+</head>
+<body class="dark-mode">
+    <div class="Desktop">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container MainContainer">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <a class="navbar-brand d-flex align-items-center" href="/">
+                        <span style="font-size: 24px; margin-right: 8px;">🎵</span>
+                        DISCOGS SELLER TRACKER
+                        <span class="powered-by d-none d-md-inline fst-italic fw-light ms-1">
+                            Track your favorite sellers
+                        </span>
+                    </a>
+                    <div class="d-flex align-items-center">
+                        <span class="settings-icon" onclick="openSettings()">
+                            <i class="bi bi-gear"></i>
+                        </span>
+                        <div class="dark-mode-toggle">
+                            <span id="darkModeToggle">
+                                <span class="moon-icon"><i class="bi bi-moon"></i></span>
+                                <span class="sun-icon"><i class="bi bi-sun"></i></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Filter form -->
+        <div class="filter-form-wrapper" id="filter-wrapper">
+            <div class="container MainContainer">
+                <form id="filter-form" class="FilterContainer">
+                    <div class="filter-group">
+                        <label for="text_search" class="filter-label">Search</label>
+                        <input type="text" id="text_search" name="text_search" class="filter-input" placeholder="Search title, artist, label...">
+                    </div>
+                    <div class="filter-group">
+                        <label for="genre" class="filter-label">Genre</label>
+                        <select id="genre" name="genre" class="filter-select">
+                            <option value="">All Genres</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="style" class="filter-label">Style</label>
+                        <select id="style" name="style" class="filter-select">
+                            <option value="">All Styles</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="artist" class="filter-label">Artist</label>
+                        <select id="artist" name="artist" class="filter-select">
+                            <option value="">All Artists</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="label" class="filter-label">Label</label>
+                        <select id="label" name="label" class="filter-select">
+                            <option value="">All Labels</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="year_range" class="filter-label">Year range</label>
+                        <input type="text" id="year_range" name="year_range" class="filter-input" placeholder="e.g. 2010-2015">
+                    </div>
+                    <div class="filter-group">
+                        <label for="rating_range" class="filter-label">Rating range</label>
+                        <input type="text" id="rating_range" name="rating_range" class="filter-input" placeholder="e.g. 3-5">
+                    </div>
+                    <div class="filter-group">
+                        <label for="rating_count_range" class="filter-label">Rating Count</label>
+                        <input type="text" id="rating_count_range" name="rating_count_range" class="filter-input" placeholder="e.g. 10-100">
+                    </div>
+                    <div class="filter-group">
+                        <label for="price_range" class="filter-label">Price range</label>
+                        <input type="text" id="price_range" name="price_range" class="filter-input" placeholder="e.g. 5-25">
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tracked Sellers -->
+        <div class="container MainContainer">
+            <div class="sellers-sidebar" id="sellersPanel">
+                <div class="sellers-header">
+                    <h5 class="mb-0">
+                        <span>Tracked Sellers (<span id="sellerCount">0</span>)</span>
+                    </h5>
+                    <div class="chips" id="selectedChips"></div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-primary" onclick="openAddSellerModal()">
+                            <i class="bi bi-plus-circle"></i> Add Seller
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleSellersPanel()" id="toggleSellersBtn">
+                            <i class="bi bi-chevron-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <ul class="seller-list" id="sellerList">
+                    <li class="text-muted text-center py-3">No sellers tracked yet. Add one above!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content container for table and pagination -->
+        <div class="container MainContainer" style="position: relative" id="resultsSection">
+            <div class="d-flex justify-content-between align-items-center mb-2" style="margin-top: 1rem">
+                <div id="results-count" class="fw-semibold"></div>
+            </div>
+
+            <div class="table-container">
+                <table class="table table-hover table-bordered mb-0">
+                    <thead id="table-header"></thead>
+                    <tbody id="releases-table-body">
+                        <tr><td class="no-results" colspan="14">
+                            <p>Add a seller above to start tracking releases</p>
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-container">
+                <ul class="pagination" id="pagination" style="display: none;"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Discogs API Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Enter your Discogs API credentials. <a href="https://www.discogs.com/settings/developers" target="_blank">Get them here</a>.</p>
+                    <div class="mb-3">
+                        <label for="consumerKey" class="form-label">Consumer Key</label>
+                        <input type="text" class="form-control" id="consumerKey" placeholder="Your consumer key">
+                    </div>
+                    <div class="mb-3">
+                        <label for="consumerSecret" class="form-label">Consumer Secret</label>
+                        <input type="text" class="form-control" id="consumerSecret" placeholder="Your consumer secret">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Seller Modal -->
+    <div class="modal fade" id="addSellerModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Discogs Seller</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="addSellerInput" class="form-label">Discogs Username</label>
+                    <input type="text" class="form-control" id="addSellerInput" placeholder="e.g. vinylseller" onkeypress="if(event.key==='Enter') addSellerFromModal()">
+                    <div class="form-text">We will fetch this seller's inventory and keep it cached locally.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="addSellerFromModal()">Add Seller</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-3">
+        <small>
+            <a href="/" style="color: inherit; text-decoration: none">
+                &copy; 2025 - Discogs Seller Tracker
+            </a>
+        </small>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+// ==================== GLOBAL STATE ====================
+let allData = [];
+let filteredData = [];
+let totalRecords = 0;
+let currentPage = 1;
+const pageSize = 10;
+let totalPages = 1;
+let currentJobId = null;
+let processingInterval = null;
+let youtubeApiReady = false;
+let youtubePlayerInstances = {};
+let currentSort = { column: 'bayesian_score', direction: 'desc' };
+let hasSearched = false;
+let currentVideoIndex = {};
+let trackedSellers = [];
+let selectedSellers = []; // Empty = all sellers
+
+// IndexedDB configuration for larger cached payloads
+const DB_NAME = 'discogsSellerTracker';
+const DB_VERSION = 1;
+const SELLER_STORE = 'sellers';
+const SELLER_METADATA_KEY = 'tracked_seller_metadata';
+let sellerDBPromise = null;
+
+function getSellerDB() {
+    if (!sellerDBPromise) {
+        sellerDBPromise = new Promise((resolve, reject) => {
+            if (!window.indexedDB) {
+                reject(new Error('IndexedDB not supported in this browser.'));
+                return;
+            }
+
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(SELLER_STORE)) {
+                    db.createObjectStore(SELLER_STORE, { keyPath: 'username' });
+                }
+            };
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+    return sellerDBPromise;
+}
+
+async function getSellerDataFromDB(username) {
+    try {
+        const db = await getSellerDB();
+        return await new Promise((resolve, reject) => {
+            const tx = db.transaction(SELLER_STORE, 'readonly');
+            const store = tx.objectStore(SELLER_STORE);
+            const request = store.get(username);
+
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('Failed to read seller data from IndexedDB:', error);
+        return null;
+    }
+}
+
+async function saveSellerDataToDB(seller) {
+    try {
+        const db = await getSellerDB();
+        const payload = {
+            username: seller.username,
+            inventory: seller.inventory || [],
+            releases: seller.releases || []
+        };
+
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(SELLER_STORE, 'readwrite');
+            const store = tx.objectStore(SELLER_STORE);
+            const request = store.put(payload);
+
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('Failed to save seller data to IndexedDB:', error);
+    }
+}
+
+async function deleteSellerDataFromDB(username) {
+    try {
+        const db = await getSellerDB();
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(SELLER_STORE, 'readwrite');
+            const store = tx.objectStore(SELLER_STORE);
+            const request = store.delete(username);
+
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('Failed to delete seller data from IndexedDB:', error);
+    }
+}
+
+// ==================== INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', async () => {
+    checkCredentials();
+    
+    // Dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('darkModeEnabled') === 'true' || !localStorage.getItem('darkModeEnabled')) {
+        document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
+    }
+    
+    darkModeToggle.addEventListener('click', () => {
+        if (document.body.classList.contains('dark-mode')) {
+            document.body.classList.remove('dark-mode');
+            localStorage.setItem('darkModeEnabled', 'false');
+        } else {
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('darkModeEnabled', 'true');
+        }
+    });
+
+    // Filter change handlers
+    document.getElementById('text_search').addEventListener('input', applyFilters);
+    document.getElementById('genre').addEventListener('change', applyFilters);
+    document.getElementById('style').addEventListener('change', applyFilters);
+    document.getElementById('artist').addEventListener('change', applyFilters);
+    document.getElementById('label').addEventListener('change', applyFilters);
+    document.getElementById('year_range').addEventListener('input', debounce(applyFilters, 500));
+    document.getElementById('rating_range').addEventListener('input', debounce(applyFilters, 500));
+    document.getElementById('rating_count_range').addEventListener('input', debounce(applyFilters, 500));
+    const priceRangeEl = document.getElementById('price_range');
+    if (priceRangeEl) priceRangeEl.addEventListener('input', debounce(applyFilters, 500));
+    const textSearchEl = document.getElementById('text_search');
+    if (textSearchEl) textSearchEl.addEventListener('input', debounce(applyFilters, 250));
+    
+    // Load tracked sellers and display
+    await loadTrackedSellers();
+    checkForStoredJob();
+});
+
+function onYouTubeIframeAPIReady() {
+    youtubeApiReady = true;
+}
+
+// ==================== CREDENTIALS MANAGEMENT ====================
+function checkCredentials() {
+    const consumerKey = localStorage.getItem('discogs_consumer_key');
+    const consumerSecret = localStorage.getItem('discogs_consumer_secret');
+    
+    if (!consumerKey || !consumerSecret) {
+        setTimeout(() => {
+            const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+            modal.show();
+        }, 500);
+    }
+}
+
+function openSettings() {
+    const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+    document.getElementById('consumerKey').value = localStorage.getItem('discogs_consumer_key') || '';
+    document.getElementById('consumerSecret').value = localStorage.getItem('discogs_consumer_secret') || '';
+    modal.show();
+}
+
+function saveSettings() {
+    const consumerKey = document.getElementById('consumerKey').value.trim();
+    const consumerSecret = document.getElementById('consumerSecret').value.trim();
+    
+    if (!consumerKey || !consumerSecret) {
+        alert('Please enter both Consumer Key and Consumer Secret');
+        return;
+    }
+    
+    localStorage.setItem('discogs_consumer_key', consumerKey);
+    localStorage.setItem('discogs_consumer_secret', consumerSecret);
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+    modal.hide();
+    
+    alert('Settings saved successfully!');
+}
+
+// ==================== SELLER MANAGEMENT ====================
+async function loadTrackedSellers() {
+    try {
+        let metadata = [];
+        const metadataStr = localStorage.getItem(SELLER_METADATA_KEY);
+
+        if (metadataStr) {
+            metadata = JSON.parse(metadataStr);
+        } else {
+            // Migration path from legacy localStorage structure
+            const legacyStr = localStorage.getItem('tracked_sellers');
+            if (legacyStr) {
+                try {
+                    const legacyData = JSON.parse(legacyStr);
+                    if (Array.isArray(legacyData)) {
+                        trackedSellers = legacyData.map(item => ({
+                            username: item.username,
+                            addedAt: item.addedAt || Date.now(),
+                            lastUpdated: item.lastUpdated || null,
+                            releases: item.releases || [],
+                            inventory: item.inventory || [],
+                            currentJob: null
+                        }));
+
+                        metadata = trackedSellers.map(({ username, addedAt, lastUpdated }) => ({
+                            username,
+                            addedAt,
+                            lastUpdated
+                        }));
+
+                        await Promise.all(trackedSellers.map(seller => saveSellerDataToDB(seller)));
+                        localStorage.removeItem('tracked_sellers');
+                        localStorage.setItem(SELLER_METADATA_KEY, JSON.stringify(metadata));
+                    }
+                } catch (error) {
+                    console.error('Failed to migrate legacy seller data:', error);
+                }
+            }
+        }
+
+        if (!metadata || !Array.isArray(metadata)) {
+            metadata = [];
+        }
+
+        const sellersWithData = await Promise.all(metadata.map(async meta => {
+            const stored = await getSellerDataFromDB(meta.username);
+            return {
+                username: meta.username,
+                addedAt: meta.addedAt || Date.now(),
+                lastUpdated: meta.lastUpdated || null,
+                releases: stored?.releases || [],
+                inventory: stored?.inventory || [],
+                currentJob: null
+            };
+        }));
+
+        trackedSellers = sellersWithData;
+    } catch (error) {
+        console.error('Failed to load tracked sellers:', error);
+        trackedSellers = [];
+    }
+
+    updateSellerList();
+    loadAllSellersData();
+}
+
+function saveTrackedSellers() {
+    const metadata = trackedSellers.map(({ username, addedAt, lastUpdated }) => ({
+        username,
+        addedAt,
+        lastUpdated
+    }));
+
+    try {
+        localStorage.setItem(SELLER_METADATA_KEY, JSON.stringify(metadata));
+        localStorage.removeItem('tracked_sellers');
+    } catch (error) {
+        console.error('Failed to persist seller metadata:', error);
+    }
+}
+
+function updateSellerList() {
+    const sellerList = document.getElementById('sellerList');
+    const sellerCount = document.getElementById('sellerCount');
+    const chips = document.getElementById('selectedChips');
+    
+    sellerCount.textContent = trackedSellers.length;
+    chips.innerHTML = '';
+    
+    const chipsToShow = selectedSellers.length > 0 ? selectedSellers : trackedSellers.map(s => s.username);
+    chipsToShow.forEach(name => {
+        const span = document.createElement('span');
+        span.className = 'selected-chip';
+        span.textContent = name;
+        chips.appendChild(span);
+    });
+    
+    if (trackedSellers.length === 0) {
+        sellerList.innerHTML = '<li class="text-muted text-center py-3">No sellers tracked yet. Add one above!</li>';
+        return;
+    }
+    
+    sellerList.innerHTML = '';
+    trackedSellers.forEach(seller => {
+        const li = document.createElement('li');
+        li.className = 'seller-item';
+        if (selectedSellers.length === 0 || selectedSellers.includes(seller.username)) {
+            li.classList.add('active');
+        }
+        
+        const releaseCount = seller.releases ? seller.releases.length : 0;
+        const lastUpdated = seller.lastUpdated ? new Date(seller.lastUpdated).toLocaleDateString() : 'Never';
+        const job = seller.currentJob;
+        
+        let jobMarkup = '';
+        let cancelBtn = '';
+        
+        if (job && job.status === 'processing') {
+            li.classList.add('processing');
+            const percent = job.total > 0 ? Math.round((job.progress / job.total) * 100) : 0;
+            const clampedPercent = Math.min(100, Math.max(0, percent));
+            const safeStep = escapeHtml(job.currentStep || 'Processing...');
+            const countLabel = job.total > 0 ? `${job.progress}/${job.total}` : '';
+            const percentLabel = job.total > 0 ? `${percent}%` : '';
+            const trailingLabel = percentLabel && countLabel ? `${percentLabel} • ${countLabel}` : (percentLabel || countLabel);
+            
+            jobMarkup = `
+                <div class="seller-progress">
+                    <div class="seller-progress-bar">
+                        <div class="seller-progress-bar-fill" style="width: ${clampedPercent}%"></div>
+                    </div>
+                    <div class="seller-progress-text">
+                        <span>${safeStep}</span>
+                        <span>${trailingLabel || ''}</span>
+                    </div>
+                </div>
+            `;
+            
+            if (job.jobId) {
+                cancelBtn = `<button class="btn btn-sm btn-outline-warning" onclick="cancelJob('${job.jobId}', event)" title="Cancel">
+                    <i class="bi bi-x-circle"></i>
+                </button>`;
+            }
+        }
+        
+        li.innerHTML = `
+            <div class="seller-info" onclick="toggleSeller('${seller.username}')">
+                <div class="seller-name">${seller.username}</div>
+                <div class="seller-meta">${releaseCount} releases • Updated: ${lastUpdated}</div>
+                ${jobMarkup}
+            </div>
+            <div class="seller-actions">
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshSeller('${seller.username}', event)" title="Refresh">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                ${cancelBtn}
+                <button class="btn btn-sm btn-outline-danger" onclick="removeSeller('${seller.username}', event)" title="Remove">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        sellerList.appendChild(li);
+    });
+}
+
+function toggleSeller(username) {
+    const index = selectedSellers.indexOf(username);
+    if (index === -1) {
+        // If nothing selected, select this one
+        if (selectedSellers.length === 0) {
+            selectedSellers = [username];
+        } else {
+            selectedSellers.push(username);
+        }
+    } else {
+        selectedSellers.splice(index, 1);
+    }
+    
+    updateSellerList();
+    loadAllSellersData();
+}
+
+function openAddSellerModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addSellerModal'));
+    document.getElementById('addSellerInput').value = '';
+    modal.show();
+}
+
+function toggleSellersPanel() {
+    const panel = document.getElementById('sellersPanel');
+    const btn = document.getElementById('toggleSellersBtn');
+    panel.classList.toggle('collapsed');
+    if (panel.classList.contains('collapsed')) {
+        btn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+    } else {
+        btn.innerHTML = '<i class="bi bi-chevron-up"></i>';
+    }
+}
+
+async function addSellerFromModal() {
+    const sellerInput = document.getElementById('addSellerInput');
+    const username = sellerInput.value.trim();
+    
+    if (!username) {
+        alert('Please enter a seller username');
+        return;
+    }
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addSellerModal'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    await addSeller(username);
+}
+
+async function addSeller(username) {
+    
+    if (!username) {
+        alert('Please enter a seller username');
+        return;
+    }
+    
+    const consumerKey = localStorage.getItem('discogs_consumer_key');
+    const consumerSecret = localStorage.getItem('discogs_consumer_secret');
+    
+    if (!consumerKey || !consumerSecret) {
+        alert('Please configure your Discogs API credentials in Settings');
+        openSettings();
+        return;
+    }
+    
+    // Check if already tracked
+    if (trackedSellers.find(s => s.username === username)) {
+        alert('This seller is already being tracked');
+        return;
+    }
+    
+    // Add seller
+    const newSeller = {
+        username,
+        addedAt: Date.now(),
+        lastUpdated: null,
+        releases: [],
+        inventory: [],
+        currentJob: null
+    };
+    
+    trackedSellers.push(newSeller);
+    saveTrackedSellers();
+    await saveSellerDataToDB(newSeller);
+    updateSellerList();
+    
+    // Start fetching
+    await fetchSellerData(username);
+}
+
+async function removeSeller(username, event) {
+    event.stopPropagation();
+    
+    if (!confirm(`Remove ${username} from tracked sellers?`)) return;
+    
+    trackedSellers = trackedSellers.filter(s => s.username !== username);
+    selectedSellers = selectedSellers.filter(u => u !== username);
+    
+    await deleteSellerDataFromDB(username);
+    saveTrackedSellers();
+    updateSellerList();
+    loadAllSellersData();
+}
+
+async function refreshSeller(username, event) {
+    event.stopPropagation();
+    
+    if (!confirm(`Refresh data for ${username}? This will fetch the latest inventory.`)) return;
+    
+    await fetchSellerData(username, true);
+}
+
+function loadAllSellersData() {
+    allData = [];
+    
+    const sellersToShow = selectedSellers.length > 0 ? selectedSellers : trackedSellers.map(s => s.username);
+    
+    sellersToShow.forEach(username => {
+        const seller = trackedSellers.find(s => s.username === username);
+        if (seller && seller.releases) {
+            // Add seller info to each release
+            const releasesWithSeller = seller.releases.map(r => ({
+                ...r,
+                seller_username: username
+            }));
+            allData.push(...releasesWithSeller);
+        }
+    });
+    
+    if (allData.length > 0) {
+        hasSearched = true;
+        displayResults(allData, false);
+    } else {
+        const tbody = document.getElementById('releases-table-body');
+        tbody.innerHTML = '<tr><td class="no-results" colspan="14"><p>No releases yet. Add sellers and they will appear here.</p></td></tr>';
+    }
+}
+
+// ==================== HELPER FUNCTIONS ====================
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function bayesianRating(avgRating, numRatings, minNumRatings = 10) {
+    if (numRatings === 0) return 0.0;
+    const priorMean = 2.5;
+    return (avgRating * numRatings + priorMean * minNumRatings) / (numRatings + minNumRatings);
+}
+
+function computeRarityCoeff(have, want) {
+    const h = typeof have === 'number' ? have : parseFloat(have) || 0;
+    const w = typeof want === 'number' ? want : parseFloat(want) || 0;
+    return (w + 1) / (h + 1);
+}
+
+function getVideoUrl(video) {
+    if (!video || typeof video !== 'object') return '';
+    return video.url || video.uri || video.href || '';
+}
+
+function sanitizeVideoLinks(videoLinks) {
+    if (!Array.isArray(videoLinks)) return [];
+    const sanitized = [];
+    videoLinks.forEach(video => {
+        const url = getVideoUrl(video);
+        if (!url) return;
+        sanitized.push({
+            url,
+            title: video?.title || ''
+        });
+    });
+    return sanitized;
+}
+
+function extractYouTubeID(url) {
+    if (!url) return null;
+    const regex = /(?:youtube\.com\/.*v=|youtu\.be\/)([^"&?/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+}
+
+// ==================== DISCOGS API CALLS ====================
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 1000;
+
+async function makeDiscogsRequest(url) {
+    const consumerKey = localStorage.getItem('discogs_consumer_key');
+    const consumerSecret = localStorage.getItem('discogs_consumer_secret');
+    
+    if (!consumerKey || !consumerSecret) {
+        throw new Error('Discogs credentials not configured. Please go to Settings.');
+    }
+    
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+    }
+    
+    const fullUrl = `${url}${url.includes('?') ? '&' : '?'}key=${consumerKey}&secret=${consumerSecret}`;
+    
+    try {
+        const response = await fetch(fullUrl, {
+            headers: {
+                'User-Agent': 'DiscogsSellerApp/1.0'
+            }
+        });
+        
+        lastRequestTime = Date.now();
+        
+        if (response.status === 429) {
+            const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
+            throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Discogs API request failed:', error);
+        throw error;
+    }
+}
+
+async function getSellerInventory(username, page = 1, perPage = 100) {
+    const url = `https://api.discogs.com/users/${username}/inventory?page=${page}&per_page=${perPage}`;
+    return await makeDiscogsRequest(url);
+}
+
+async function getReleaseDetails(releaseId) {
+    const url = `https://api.discogs.com/releases/${releaseId}`;
+    return await makeDiscogsRequest(url);
+}
+
+// ==================== JOB MANAGEMENT ====================
+function checkForStoredJob() {
+    const storedJobId = localStorage.getItem('currentJobId');
+    const storedUsername = localStorage.getItem('currentUsername');
+    
+    if (storedJobId && storedUsername) {
+        currentJobId = storedJobId;
+        
+        const job = getJobFromStorage(storedJobId);
+        if (job && job.status === 'processing') {
+            // Update seller's currentJob
+            const seller = trackedSellers.find(s => s.username === storedUsername);
+            if (seller) {
+                seller.currentJob = job;
+                updateSellerList();
+            }
+            resumeJob(storedJobId, storedUsername);
+        } else if (job && job.status === 'complete') {
+            localStorage.removeItem('currentJobId');
+            localStorage.removeItem('currentUsername');
+        }
+    }
+}
+
+function createJob(jobId, username) {
+    const job = {
+        jobId,
+        username,
+        status: 'processing',
+        progress: 0,
+        total: 0,
+        currentStep: 'Initializing...',
+        createdAt: Date.now(),
+        processedReleases: []
+    };
+    localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
+    return job;
+}
+
+function updateJob(jobId, updates) {
+    const jobStr = localStorage.getItem(`job_${jobId}`);
+    if (!jobStr) return null;
+    
+    const job = JSON.parse(jobStr);
+    Object.assign(job, updates);
+    localStorage.setItem(`job_${jobId}`, JSON.stringify(job));
+    return job;
+}
+
+function getJobFromStorage(jobId) {
+    const jobStr = localStorage.getItem(`job_${jobId}`);
+    return jobStr ? JSON.parse(jobStr) : null;
+}
+
+// ==================== MAIN FETCH LOGIC ====================
+async function fetchSellerData(username, forceRefresh = false) {
+    const seller = trackedSellers.find(s => s.username === username);
+    if (!seller) return;
+    
+    // Check if we have inventory cached (unless force refresh)
+    if (!forceRefresh && seller.inventory && seller.inventory.length > 0) {
+        console.log(`Using cached inventory for ${username}`);
+    }
+    
+    const jobId = 'job_' + Date.now();
+    currentJobId = jobId;
+    localStorage.setItem('currentJobId', jobId);
+    localStorage.setItem('currentUsername', username);
+    
+    const job = createJob(jobId, username);
+    
+    // Update seller's currentJob
+    seller.currentJob = job;
+    updateSellerList();
+    
+    await processSellerData(jobId, username, forceRefresh);
+}
+
+async function processSellerData(jobId, username, forceRefresh = false) {
+    try {
+        const seller = trackedSellers.find(s => s.username === username);
+        if (!seller) return;
+        
+        let allListings = [];
+        
+        // Fetch or use cached inventory
+        if (!forceRefresh && seller.inventory && seller.inventory.length > 0) {
+            allListings = seller.inventory;
+            updateJob(jobId, { currentStep: 'Using cached inventory...' });
+            updateProgress(jobId);
+        } else {
+            updateJob(jobId, { currentStep: 'Fetching inventory...' });
+            updateProgress(jobId);
+            
+            let page = 1;
+            const perPage = 100;
+            
+            while (true) {
+                try {
+                    const inventory = await getSellerInventory(username, page, perPage);
+                    const listings = inventory.listings || [];
+                    
+                    if (listings.length === 0) break;
+                    
+                    allListings.push(...listings);
+                    
+                    const totalPages = inventory.pagination?.pages || 1;
+                    updateJob(jobId, {
+                        currentStep: `Fetching inventory: Page ${page} of ${totalPages}`,
+                        progress: page,
+                        total: totalPages
+                    });
+                    updateProgress(jobId);
+                    
+                    if (page >= totalPages) break;
+                    page++;
+                } catch (error) {
+                    console.error('Error fetching inventory page:', error);
+                    if (error.message.includes('Rate limited')) {
+                        updateJob(jobId, { currentStep: 'Rate limited, waiting...' });
+                        updateProgress(jobId);
+                        await new Promise(resolve => setTimeout(resolve, 60000));
+                        continue;
+                    }
+                    if (allListings.length > 0) break;
+                    throw error;
+                }
+            }
+            
+            // Save inventory
+            seller.inventory = allListings;
+            await saveSellerDataToDB(seller);
+        }
+        
+        if (allListings.length === 0) {
+            updateJob(jobId, {
+                status: 'error',
+                currentStep: 'No listings found for this seller'
+            });
+            updateProgress(jobId);
+            finishJob(jobId, username);
+            return;
+        }
+        
+        // Process unique releases
+        const uniqueReleases = {};
+        for (const listing of allListings) {
+            const release = listing.release;
+            if (!release || !release.id) continue;
+            
+            const price = parseFloat(listing.price?.value || 0);
+            if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
+                uniqueReleases[release.id] = {
+                    id: release.id,
+                    artist: release.artist || 'Unknown Artist',
+                    title: release.title || 'Unknown Title',
+                    price: price
+                };
+            }
+        }
+        
+        const releaseIds = Object.keys(uniqueReleases);
+        
+        // Check which releases we already have details for
+        const existingReleases = seller.releases || [];
+        const existingIds = new Set(existingReleases.map(r => r.id));
+        const newReleaseIds = releaseIds.filter(id => !existingIds.has(parseInt(id)));
+        const removedIds = existingReleases.filter(r => !releaseIds.includes(r.id.toString())).map(r => r.id);
+        
+        // Remove releases no longer in inventory
+        if (removedIds.length > 0) {
+            seller.releases = existingReleases.filter(r => !removedIds.includes(r.id));
+            console.log(`Removed ${removedIds.length} releases no longer in inventory`);
+            await saveSellerDataToDB(seller);
+        }
+        
+        // If no new releases, we're done
+        if (newReleaseIds.length === 0) {
+            updateJob(jobId, {
+                status: 'complete',
+                currentStep: 'All releases up to date!',
+                progress: releaseIds.length,
+                total: releaseIds.length
+            });
+            updateProgress(jobId);
+            
+            seller.lastUpdated = Date.now();
+            saveTrackedSellers();
+            await saveSellerDataToDB(seller);
+            updateSellerList();
+            loadAllSellersData();
+            finishJob(jobId, username);
+            return;
+        }
+        
+        updateJob(jobId, {
+            total: newReleaseIds.length,
+            progress: 0,
+            currentStep: `Fetching details for ${newReleaseIds.length} new releases...`
+        });
+        updateProgress(jobId);
+        
+        // Fetch details for new releases
+        const processedReleases = [...existingReleases];
+        
+        for (let i = 0; i < newReleaseIds.length; i++) {
+            const job = getJobFromStorage(jobId);
+            if (job.status === 'cancelled') {
+                console.log('Job cancelled');
+                return;
+            }
+            
+            const releaseId = newReleaseIds[i];
+            const basicInfo = uniqueReleases[releaseId];
+            
+            try {
+                const details = await getReleaseDetails(releaseId);
+                
+                const ratingData = details.community?.rating || {};
+                const avgRating = parseFloat(ratingData.average || 0);
+                const numRatings = parseInt(ratingData.count || 0);
+                const bayesianScore = bayesianRating(avgRating, numRatings);
+                
+                const haveCount = parseInt(details.community?.have || 0);
+                const wantCount = parseInt(details.community?.want || 0);
+                
+                const releaseData = {
+                    id: parseInt(releaseId),
+                    artist_title: `${basicInfo.artist} - ${basicInfo.title}`,
+                    artist: details.artists?.[0]?.name || basicInfo.artist,
+                    title: details.title || basicInfo.title,
+                    label: details.labels?.[0]?.name || null,
+                    year: details.year || null,
+                    genres: JSON.stringify(details.genres || []),
+                    styles: JSON.stringify(details.styles || []),
+                    avg_rating: avgRating,
+                    num_ratings: numRatings,
+                    bayesian_score: bayesianScore,
+                    price: basicInfo.price,
+                    have_count: haveCount,
+                    want_count: wantCount,
+                    youtube_video_id: null,
+                    video_urls: JSON.stringify(details.videos || []),
+                    url: `https://www.discogs.com/release/${releaseId}`,
+                    demand_coeff: computeRarityCoeff(haveCount, wantCount)
+                };
+                
+                processedReleases.push(releaseData);
+                
+                updateJob(jobId, {
+                    progress: i + 1,
+                    currentStep: `Processing: ${i + 1} of ${newReleaseIds.length} new releases`,
+                    processedReleases
+                });
+                updateProgress(jobId);
+                
+                // Update seller data incrementally
+                seller.releases = processedReleases;
+                
+                // Update display every 10 releases
+                if ((i + 1) % 10 === 0 || i === newReleaseIds.length - 1) {
+                    await saveSellerDataToDB(seller);
+                    loadAllSellersData();
+                }
+                
+            } catch (error) {
+                console.error(`Error fetching details for release ${releaseId}:`, error);
+                if (error.message.includes('Rate limited')) {
+                    updateJob(jobId, { currentStep: 'Rate limited, waiting...' });
+                    updateProgress(jobId);
+                    await new Promise(resolve => setTimeout(resolve, 60000));
+                    i--;
+                    continue;
+                }
+            }
+        }
+        
+        seller.lastUpdated = Date.now();
+        saveTrackedSellers();
+        await saveSellerDataToDB(seller);
+        updateSellerList();
+        
+        updateJob(jobId, {
+            status: 'complete',
+            currentStep: 'Complete!',
+            progress: newReleaseIds.length
+        });
+        updateProgress(jobId);
+        
+        loadAllSellersData();
+        finishJob(jobId, username);
+        
+    } catch (error) {
+        console.error('Error processing seller data:', error);
+        updateJob(jobId, {
+            status: 'error',
+            currentStep: `Error: ${error.message}`
+        });
+        updateProgress(jobId);
+        finishJob(jobId, username);
+    }
+}
+
+async function resumeJob(jobId, username) {
+    const job = getJobFromStorage(jobId);
+    if (!job) return;
+    
+    if (job.processedReleases && job.processedReleases.length > 0) {
+        displayResults(job.processedReleases, true);
+    }
+    
+    updateProgress(jobId);
+    
+    await processSellerData(jobId, username, false);
+}
+
+function updateProgress(jobId) {
+    const job = getJobFromStorage(jobId);
+    if (!job) return;
+    
+    // Update the seller's currentJob
+    const username = job.username || job.seller_username;
+    if (username) {
+        const seller = trackedSellers.find(s => s.username === username);
+        if (seller) {
+            seller.currentJob = job;
+            updateSellerList();
+        }
+    }
+}
+
+function cancelJob(jobId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    if (!confirm('Are you sure you want to cancel this job?')) {
+        return;
+    }
+    
+    const job = updateJob(jobId, {
+        status: 'cancelled',
+        currentStep: 'Cancelled by user'
+    });
+    
+    const username = job?.username || job?.seller_username;
+    finishJob(jobId, username);
+}
+
+function finishJob(jobId, username) {
+    const job = getJobFromStorage(jobId);
+    const sellerUsername = username || job?.username || job?.seller_username;
+    
+    if (sellerUsername) {
+        const seller = trackedSellers.find(s => s.username === sellerUsername);
+        if (seller) {
+            if (job && job.status === 'complete') {
+                // Clear the job after a short delay
+                setTimeout(() => {
+                    seller.currentJob = null;
+                    updateSellerList();
+                }, 2000);
+            } else if (job && job.status === 'cancelled') {
+                // Keep cancelled status visible briefly
+                seller.currentJob = job;
+                updateSellerList();
+                setTimeout(() => {
+                    seller.currentJob = null;
+                    updateSellerList();
+                }, 2000);
+            } else {
+                seller.currentJob = null;
+                updateSellerList();
+            }
+        }
+    }
+    
+    localStorage.removeItem('currentJobId');
+    localStorage.removeItem('currentUsername');
+    localStorage.removeItem(`job_${jobId}`);
+}
+
+// ==================== DISPLAY & FILTERING ====================
+let lastDataHash = '';
+
+function displayResults(releases, isProcessing = false) {
+    const currentHash = JSON.stringify(releases.map(r => r.id + '-' + r.artist_title));
+    const hasNewData = currentHash !== lastDataHash;
+    
+    if (hasNewData || !isProcessing) {
+        lastDataHash = currentHash;
+        
+        allData = releases.map(r => ({
+            ...r,
+            demand_coeff: computeRarityCoeff(r.have_count, r.want_count)
+        }));
+        
+        if (!isProcessing) {
+            populateFilterOptions(allData);
+        }
+        
+        const savePage = isProcessing ? currentPage : 1;
+        applyFilters(savePage);
+    }
+    
+    if (isProcessing) {
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection) {
+            const existingNote = document.getElementById('processingNote');
+            if (!existingNote) {
+                const note = document.createElement('div');
+                note.id = 'processingNote';
+                note.className = 'alert alert-info mt-2';
+                note.innerHTML = '<i class="bi bi-hourglass-split"></i> Still processing... Results will update automatically.';
+                resultsSection.insertBefore(note, resultsSection.firstChild);
+            }
+        }
+    } else {
+        const existingNote = document.getElementById('processingNote');
+        if (existingNote) {
+            existingNote.remove();
+        }
+        lastDataHash = '';
+    }
+}
+
+function populateFilterOptions(releases) {
+    const genreSelect = document.getElementById('genre');
+    const styleSelect = document.getElementById('style');
+    const artistSelect = document.getElementById('artist');
+    const labelSelect = document.getElementById('label');
+    
+    const genreCounts = new Map();
+    const styleCounts = new Map();
+    const artistCounts = new Map();
+    const labelCounts = new Map();
+    
+    releases.forEach(release => {
+        if (release.genres) {
+            try {
+                const genres = JSON.parse(release.genres);
+                genres.forEach(g => {
+                    genreCounts.set(g, (genreCounts.get(g) || 0) + 1);
+                });
+            } catch (e) {}
+        }
+        
+        if (release.styles) {
+            try {
+                const styles = JSON.parse(release.styles);
+                styles.forEach(s => {
+                    styleCounts.set(s, (styleCounts.get(s) || 0) + 1);
+                });
+            } catch (e) {}
+        }
+        
+        if (release.artist) {
+            const artists = release.artist.split(/[,&\/]/).map(a => a.trim()).filter(a => a);
+            artists.forEach(a => {
+                artistCounts.set(a, (artistCounts.get(a) || 0) + 1);
+            });
+        }
+        
+        if (release.label) {
+            const labels = release.label.split(/[,&\/]/).map(l => l.trim()).filter(l => l);
+            labels.forEach(l => {
+                labelCounts.set(l, (labelCounts.get(l) || 0) + 1);
+            });
+        }
+    });
+    
+    function populateSelect(select, counts, currentValue) {
+        select.innerHTML = '';
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = select.id === 'genre' ? 'All Genres' : 
+                              select.id === 'style' ? 'All Styles' :
+                              select.id === 'artist' ? 'All Artists' : 'All Labels';
+        select.appendChild(allOption);
+        
+        Array.from(counts.entries())
+            .sort((a, b) => {
+                if (b[1] !== a[1]) return b[1] - a[1];
+                return a[0].localeCompare(b[0]);
+            })
+            .forEach(([value, count]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = `${value} (${count})`;
+                if (value === currentValue) option.selected = true;
+                select.appendChild(option);
+            });
+    }
+    
+    populateSelect(genreSelect, genreCounts, genreSelect.value);
+    populateSelect(styleSelect, styleCounts, styleSelect.value);
+    populateSelect(artistSelect, artistCounts, artistSelect.value);
+    populateSelect(labelSelect, labelCounts, labelSelect.value);
+}
+
+function applyFilters(preservePage = null) {
+    const q = (document.getElementById('text_search')?.value || '').toLowerCase().trim();
+    const selectedGenre = document.getElementById('genre').value;
+    const selectedStyle = document.getElementById('style').value;
+    const selectedArtist = document.getElementById('artist').value;
+    const selectedLabel = document.getElementById('label').value;
+    const yearRange = document.getElementById('year_range').value;
+    const ratingRange = document.getElementById('rating_range').value;
+    const ratingCountRange = document.getElementById('rating_count_range').value;
+    const priceRange = document.getElementById('price_range') ? document.getElementById('price_range').value : '';
+    
+    let minYear = 0, maxYear = 9999;
+    if (yearRange && yearRange.includes('-')) {
+        const parts = yearRange.split('-');
+        minYear = parseInt(parts[0]) || 0;
+        maxYear = parseInt(parts[1]) || 9999;
+    }
+    
+    let minRating = 0, maxRating = 5;
+    if (ratingRange && ratingRange.includes('-')) {
+        const parts = ratingRange.split('-');
+        minRating = parseFloat(parts[0]) || 0;
+        maxRating = parseFloat(parts[1]) || 5;
+    }
+    
+    let minRatingCount = 0, maxRatingCount = Infinity;
+    if (ratingCountRange && ratingCountRange.includes('-')) {
+        const parts = ratingCountRange.split('-');
+        minRatingCount = parseInt(parts[0]) || 0;
+        maxRatingCount = parseInt(parts[1]) || Infinity;
+    }
+    
+    let minPrice = 0, maxPrice = Infinity;
+    if (priceRange && priceRange.includes('-')) {
+        const parts = priceRange.split('-');
+        minPrice = parseFloat(parts[0]) || 0;
+        maxPrice = parseFloat(parts[1]) || Infinity;
+    }
+    
+    filteredData = allData.filter(release => {
+        if (selectedSellers.length > 0 && !selectedSellers.includes(release.seller_username)) {
+            return false;
+        }
+        if (q) {
+            const hay = (
+                (release.title || '') + ' ' +
+                (release.artist || '') + ' ' +
+                (release.label || '')
+            ).toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        
+        if (selectedGenre) {
+            let genres = [];
+            if (release.genres) {
+                try {
+                    genres = JSON.parse(release.genres);
+                } catch (e) {}
+            }
+            if (!genres.includes(selectedGenre)) return false;
+        }
+        
+        if (selectedStyle) {
+            let styles = [];
+            if (release.styles) {
+                try {
+                    styles = JSON.parse(release.styles);
+                } catch (e) {}
+            }
+            if (!styles.includes(selectedStyle)) return false;
+        }
+        
+        if (selectedArtist) {
+            if (!release.artist) return false;
+            const artists = release.artist.split(/[,&\/]/).map(a => a.trim());
+            if (!artists.includes(selectedArtist)) return false;
+        }
+        
+        if (selectedLabel) {
+            if (!release.label) return false;
+            const labels = release.label.split(/[,&\/]/).map(l => l.trim());
+            if (!labels.includes(selectedLabel)) return false;
+        }
+        
+        if (release.year && (release.year < minYear || release.year > maxYear)) {
+            return false;
+        }
+        
+        if (release.avg_rating < minRating || release.avg_rating > maxRating) {
+            return false;
+        }
+        
+        if (release.num_ratings < minRatingCount || release.num_ratings > maxRatingCount) {
+            return false;
+        }
+        
+        const priceVal = typeof release.price === 'number' ? release.price : parseFloat(release.price) || 0;
+        if (priceVal < minPrice || priceVal > maxPrice) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    sortData();
+    
+    totalRecords = filteredData.length;
+    if (preservePage !== null) {
+        currentPage = Math.min(preservePage, Math.ceil(totalRecords / pageSize)) || 1;
+    } else {
+        currentPage = 1;
+    }
+    totalPages = Math.ceil(totalRecords / pageSize);
+    
+    renderTable();
+    renderPagination();
+}
+
+function sortData() {
+    if (!currentSort.column) return;
+    
+    filteredData.sort((a, b) => {
+        let aVal = a[currentSort.column];
+        let bVal = b[currentSort.column];
+        
+        if (aVal === null || aVal === undefined) aVal = '';
+        if (bVal === null || bVal === undefined) bVal = '';
+        
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+            return currentSort.direction === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+        
+        aVal = String(aVal).toLowerCase();
+        bVal = String(bVal).toLowerCase();
+        
+        if (currentSort.direction === 'asc') {
+            return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        } else {
+            return bVal < aVal ? -1 : bVal > aVal ? 1 : 0;
+        }
+    });
+}
+
+function sortByColumn(column) {
+    if (currentSort.column === column) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSort.column = column;
+        currentSort.direction = 'desc';
+    }
+    
+    applyFilters(currentPage);
+    updateSortIndicators();
+}
+
+// ==================== TABLE RENDERING ====================
+function renderTable() {
+    const tbody = document.getElementById('releases-table-body');
+    if (!tbody) return;
+    
+    setupTableHeaders();
+    updateSortIndicators();
+    
+    if (filteredData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center">No releases found</td></tr>';
+        return;
+    }
+    
+    const start = (currentPage - 1) * pageSize;
+    const end = Math.min(start + pageSize, filteredData.length);
+    const pageData = filteredData.slice(start, end);
+    
+    tbody.innerHTML = '';
+    pageData.forEach((release) => {
+        const row = document.createElement('tr');
+        row.setAttribute('data-release-id', release.id);
+        renderRow(row, release);
+        tbody.appendChild(row);
+    });
+    
+    document.getElementById('resultsSection').style.display = 'block';
+}
+
+function renderRow(row, release) {
+    let genres = [];
+    let styles = [];
+    try {
+        if (release.genres) genres = JSON.parse(release.genres);
+        if (release.styles) styles = JSON.parse(release.styles);
+    } catch (e) {}
+    
+    const genreStyleCell = document.createElement('td');
+    if (genres.length > 0) {
+        genres.forEach(g => {
+            const span = document.createElement('span');
+            span.className = 'badge-genre';
+            span.textContent = g;
+            genreStyleCell.appendChild(span);
+        });
+    }
+    if (styles.length > 0) {
+        styles.forEach(s => {
+            const span = document.createElement('span');
+            span.className = 'badge-style';
+            span.textContent = s;
+            genreStyleCell.appendChild(span);
+        });
+    }
+    if (genres.length === 0 && styles.length === 0) {
+        genreStyleCell.textContent = '-';
+    }
+    
+    // Video cell
+    let videoCell = '';
+    let rawVideoLinks = [];
+    
+    if (release.video_urls) {
+        try {
+            rawVideoLinks = JSON.parse(release.video_urls);
+        } catch (e) {}
+    }
+    
+    const videoLinks = sanitizeVideoLinks(rawVideoLinks);
+    
+    if (videoLinks.length > 0) {
+        const firstVideo = videoLinks[0];
+        const firstVideoId = extractYouTubeID(firstVideo.url);
+        
+        if (firstVideoId) {
+            const videosDataAttr = encodeURIComponent(JSON.stringify(videoLinks));
+            videoCell = `
+                <div class="video-carousel" id="carousel-${release.id}" data-release-id="${release.id}">
+                    <iframe id="youtube-player-${release.id}" class="table-iframe" loading="lazy" 
+                        title="YouTube video player" aria-label="YouTube video player" 
+                        src="https://www.youtube.com/embed/${firstVideoId}?enablejsapi=1&rel=0&modestbranding=1" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen 
+                        style="width: 220px; height: 124px;">
+                    </iframe>
+            `;
+            
+            if (videoLinks.length > 1) {
+                videoCell += `
+                    <div class="video-nav d-flex justify-content-between align-items-center mt-1">
+                        <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="-1" data-videos="${videosDataAttr}">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="video-counter" id="counter-${release.id}">1 / ${videoLinks.length}</span>
+                        <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="1" data-videos="${videosDataAttr}">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                `;
+            }
+            videoCell += '</div>';
+        } else {
+            const linksToShow = videoLinks.slice(0, 3);
+            if (linksToShow.length > 0) {
+                videoCell = '<div class="video-links">';
+                linksToShow.forEach((video, idx) => {
+                    videoCell += `<a href="${escapeHtml(video.url)}" target="_blank" class="btn btn-sm btn-outline-primary mb-1" style="display: block; font-size: 0.75rem;">
+                        <i class="bi bi-play-circle"></i> ${escapeHtml(video.title || 'Video ' + (idx + 1))}
+                    </a>`;
+                });
+                videoCell += '</div>';
+            }
+        }
+    }
+    
+    if (!videoCell) {
+        videoCell = `
+            <a href="https://www.youtube.com/results?search_query=${encodeURIComponent((release.artist || '') + ' ' + (release.title || release.artist_title || ''))}" 
+               target="_blank" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-search"></i> Search
+            </a>
+        `;
+    }
+    
+    const ratingStars = release.avg_rating ? generateStars(release.avg_rating) : '<div class="text-muted">No rating</div>';
+    const ratingText = release.avg_rating ? `${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}` : '';
+    
+    row.innerHTML = `
+        <td><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
+        <td><a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a></td>
+        <td>${escapeHtml(release.artist || '-')}</td>
+        <td>${escapeHtml(release.label || '-')}</td>
+        <td class="text-center">${release.year || '-'}</td>
+    `;
+    row.appendChild(genreStyleCell);
+    row.innerHTML += `
+        <td class="text-center">${ratingStars} ${ratingText}</td>
+        <td class="text-center">${release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-'}</td>
+        <td class="text-center">${release.num_ratings || '0'}</td>
+        <td class="text-center">${release.have_count || '0'}</td>
+        <td class="text-center">${release.want_count || '0'}</td>
+        <td class="text-center">${release.price ? '$' + release.price.toFixed(2) : '-'}</td>
+        <td class="text-center">${videoCell}</td>
+    `;
+}
+
+function setupTableHeaders() {
+    const thead = document.getElementById('table-header');
+    if (thead.querySelector('tr')) return;
+    
+    const columns = [
+        { key: 'seller_username', label: 'Seller' },
+        { key: 'title', label: 'Title' },
+        { key: 'artist', label: 'Artist' },
+        { key: 'label', label: 'Label' },
+        { key: 'year', label: 'Year' },
+        { key: null, label: 'Genre / Style', nosort: true },
+        { key: 'bayesian_score', label: 'Rating' },
+        { key: 'demand_coeff', label: 'Rarity' },
+        { key: 'num_ratings', label: '# Ratings' },
+        { key: 'have_count', label: 'Have' },
+        { key: 'want_count', label: 'Want' },
+        { key: 'price', label: 'Price' },
+        { key: null, label: 'Videos', nosort: true }
+    ];
+    
+    const headerRow = document.createElement('tr');
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.setAttribute('data-column-name', col.label);
+        
+        if (col.key && !col.nosort) {
+            th.setAttribute('data-sort-key', col.key);
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', () => sortByColumn(col.key));
+            th.innerHTML = col.label;
+        } else {
+            th.textContent = col.label;
+        }
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+}
+
+function updateSortIndicators() {
+    const thead = document.getElementById('table-header');
+    if (!thead) return;
+    
+    const ths = thead.querySelectorAll('th[data-sort-key]');
+    ths.forEach(th => {
+        const sortKey = th.getAttribute('data-sort-key');
+        const colName = th.getAttribute('data-column-name');
+        
+        th.innerHTML = colName;
+        
+        if (sortKey && currentSort.column === sortKey) {
+            const icon = currentSort.direction === 'asc' 
+                ? '<i class="bi bi-arrow-up sort-indicator"></i>'
+                : '<i class="bi bi-arrow-down sort-indicator"></i>';
+            th.innerHTML += icon;
+        }
+    });
+}
+
+function generateStars(avg) {
+    const average = parseFloat(avg) || 0;
+    const full = Math.floor(average);
+    const half = average % 1 >= 0.5 ? 1 : 0;
+    const empty = 5 - full - half;
+    let html = '';
+    for (let i = 0; i < full; i++) html += '<i class="bi bi-star-fill text-warning"></i>';
+    if (half) html += '<i class="bi bi-star-half text-warning"></i>';
+    for (let i = 0; i < empty; i++) html += '<i class="bi bi-star text-warning"></i>';
+    return html;
+}
+
+// ==================== PAGINATION ====================
+function renderPagination() {
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML = '';
+    
+    if (totalPages <= 1) {
+        pagination.style.display = 'none';
+        return;
+    }
+    
+    pagination.style.display = 'flex';
+    
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>`;
+    pagination.appendChild(prevLi);
+    
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+    
+    if (endPage - startPage < maxButtons - 1) {
+        startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageLi = document.createElement('li');
+        pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        pageLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>`;
+        pagination.appendChild(pageLi);
+    }
+    
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>`;
+    pagination.appendChild(nextLi);
+}
+
+function changePage(page) {
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    renderTable();
+    renderPagination();
+}
+
+// ==================== VIDEO CAROUSEL ====================
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.video-nav-btn')) {
+        const btn = e.target.closest('.video-nav-btn');
+        const releaseId = parseInt(btn.getAttribute('data-release-id'), 10);
+        const direction = parseInt(btn.getAttribute('data-direction'), 10);
+        const videosJson = btn.getAttribute('data-videos');
+        
+        if (!Number.isInteger(releaseId) || !Number.isInteger(direction) || !videosJson) {
+            return;
+        }
+
+        try {
+            const videos = JSON.parse(decodeURIComponent(videosJson));
+            changeVideo(releaseId, direction, videos);
+        } catch (err) {
+            console.error('Error parsing videos JSON:', err);
+        }
+    }
+});
+
+function changeVideo(releaseId, direction, videos) {
+    if (!Array.isArray(videos) || videos.length === 0) {
+        return;
+    }
+
+    if (!currentVideoIndex[releaseId]) {
+        currentVideoIndex[releaseId] = 0;
+    }
+    
+    currentVideoIndex[releaseId] += direction;
+    if (currentVideoIndex[releaseId] < 0) {
+        currentVideoIndex[releaseId] = videos.length - 1;
+    } else if (currentVideoIndex[releaseId] >= videos.length) {
+        currentVideoIndex[releaseId] = 0;
+    }
+    
+    const currentIndex = currentVideoIndex[releaseId];
+    const video = videos[currentIndex];
+    const videoUrl = getVideoUrl(video);
+    const videoId = extractYouTubeID(videoUrl);
+    
+    if (videoId) {
+        const iframe = document.getElementById(`youtube-player-${releaseId}`);
+        if (iframe) {
+            iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&modestbranding=1`;
+        }
+    }
+    
+    const counter = document.getElementById(`counter-${releaseId}`);
+    if (counter) {
+        counter.textContent = `${currentIndex + 1} / ${videos.length}`;
+    }
+}
+    </script>
+</body>
+</html>
