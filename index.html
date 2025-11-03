@@ -887,61 +887,7 @@ footer a:hover {
   }
 }
 
-/* -----------------------
-   TABLE COLUMN REORDER (CSS-only)
-   Move Seller column to the right of Rating
-   Original order (1..13):
-   1 Seller, 2 Title, 3 Artist, 4 Label, 5 Year, 6 Genre/Style, 7 Rating,
-   8 Rarity, 9 #Ratings, 10 Have, 11 Want, 12 Price, 13 Videos
-   New visual order: 2,3,4,5,6,7,1,8,9,10,11,12,13
-------------------------- */
-.table-container thead tr,
-.table-container tbody tr {
-  display: grid;
-  grid-template-columns: minmax(140px, 1fr) /* Title */
-                         minmax(120px, 0.8fr) /* Artist */
-                         minmax(120px, 0.8fr) /* Label */
-                         minmax(60px, auto)   /* Year */
-                         minmax(160px, 1fr)   /* Genre/Style */
-                         minmax(120px, auto)  /* Rating */
-                         minmax(110px, auto)  /* Seller (moved) */
-                         minmax(90px, auto)   /* Rarity */
-                         minmax(100px, auto)  /* # Ratings */
-                         minmax(80px, auto)   /* Have */
-                         minmax(80px, auto)   /* Want */
-                         minmax(90px, auto)   /* Price */
-                         minmax(200px, 1fr);  /* Videos */
-  align-items: stretch;
-}
-
-/* Header remap */
-.table-container thead tr th { margin: 0; }
-.table-container thead tr th:nth-child(1) { grid-column: 7; }
-.table-container thead tr th:nth-child(2) { grid-column: 1; }
-.table-container thead tr th:nth-child(3) { grid-column: 2; }
-.table-container thead tr th:nth-child(4) { grid-column: 3; }
-.table-container thead tr th:nth-child(5) { grid-column: 4; }
-.table-container thead tr th:nth-child(6) { grid-column: 5; }
-.table-container thead tr th:nth-child(7) { grid-column: 6; }
-/* th 8..13 keep their natural order */
-
-/* Body remap */
-.table-container tbody tr td { margin: 0; }
-.table-container tbody tr td:nth-child(1) { grid-column: 7; }
-.table-container tbody tr td:nth-child(2) { grid-column: 1; }
-.table-container tbody tr td:nth-child(3) { grid-column: 2; }
-.table-container tbody tr td:nth-child(4) { grid-column: 3; }
-.table-container tbody tr td:nth-child(5) { grid-column: 4; }
-.table-container tbody tr td:nth-child(6) { grid-column: 5; }
-.table-container tbody tr td:nth-child(7) { grid-column: 6; }
-/* td 8..13 keep their natural order */
-
-/* Keep spacing and hover behavior intact with grid */
-.table-container tbody tr { gap: 0; }
-.table-container thead tr { gap: 0; }
-
-/* Horizontal scroll still supported */
-.table-container { overflow-x: auto; }
+/* (Removed CSS-grid column remap in favor of JS column order to avoid table header glitches) */
     </style>
 </head>
 <body class="dark-mode">
@@ -2405,12 +2351,32 @@ function renderTable() {
     const start = (currentPage - 1) * pageSize;
     const end = Math.min(start + pageSize, filteredData.length);
     const pageData = filteredData.slice(start, end);
-    
-    tbody.innerHTML = '';
+
+    // Preserve existing rows to avoid reloading iframes
+    const existingRows = new Map();
+    tbody.querySelectorAll('tr[data-release-id]').forEach((row) => {
+        const rid = row.getAttribute('data-release-id');
+        if (rid) existingRows.set(rid, row);
+    });
+
+    // Remove rows not on the current page
+    const currentPageIds = new Set(pageData.map(r => String(r.id)));
+    existingRows.forEach((row, rid) => {
+        if (!currentPageIds.has(rid)) {
+            row.remove();
+            existingRows.delete(rid);
+        }
+    });
+
+    // Append rows in correct order; create if missing, keep existing untouched
     pageData.forEach((release) => {
-        const row = document.createElement('tr');
-        row.setAttribute('data-release-id', release.id);
-        renderRow(row, release);
+        const idStr = String(release.id);
+        let row = existingRows.get(idStr);
+        if (!row) {
+            row = document.createElement('tr');
+            row.setAttribute('data-release-id', idStr);
+            renderRow(row, release);
+        }
         tbody.appendChild(row);
     });
     
@@ -2517,7 +2483,6 @@ function renderRow(row, release) {
     const ratingText = release.avg_rating ? `${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}` : '';
     
     row.innerHTML = `
-        <td><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
         <td><a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a></td>
         <td>${escapeHtml(release.artist || '-')}</td>
         <td>${escapeHtml(release.label || '-')}</td>
@@ -2526,6 +2491,7 @@ function renderRow(row, release) {
     row.appendChild(genreStyleCell);
     row.innerHTML += `
         <td class="text-center">${ratingStars} ${ratingText}</td>
+        <td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
         <td class="text-center">${release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-'}</td>
         <td class="text-center">${release.num_ratings || '0'}</td>
         <td class="text-center">${release.have_count || '0'}</td>
@@ -2540,13 +2506,13 @@ function setupTableHeaders() {
     if (thead.querySelector('tr')) return;
     
     const columns = [
-        { key: 'seller_username', label: 'Seller' },
         { key: 'title', label: 'Title' },
         { key: 'artist', label: 'Artist' },
         { key: 'label', label: 'Label' },
         { key: 'year', label: 'Year' },
         { key: null, label: 'Genre / Style', nosort: true },
         { key: 'bayesian_score', label: 'Rating' },
+        { key: 'seller_username', label: 'Seller' },
         { key: 'demand_coeff', label: 'Rarity' },
         { key: 'num_ratings', label: '# Ratings' },
         { key: 'have_count', label: 'Have' },
