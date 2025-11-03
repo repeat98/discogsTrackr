@@ -538,39 +538,6 @@ body.dark-mode .table-container tbody tr {
   color: var(--text-color);
 }
 
-/* Align header/body and stabilize column widths */
-.table-container table.table thead th { white-space: nowrap; }
-.table-container table.table thead th,
-.table-container table.table tbody td { vertical-align: middle; }
-
-/* Column sizing by new order (1..13) */
-.table-container table.table thead th:nth-child(1),
-.table-container table.table tbody td:nth-child(1) { min-width: 220px; }
-.table-container table.table thead th:nth-child(2),
-.table-container table.table tbody td:nth-child(2) { min-width: 140px; }
-.table-container table.table thead th:nth-child(3),
-.table-container table.table tbody td:nth-child(3) { min-width: 140px; }
-.table-container table.table thead th:nth-child(4),
-.table-container table.table tbody td:nth-child(4) { width: 80px; }
-.table-container table.table thead th:nth-child(5),
-.table-container table.table tbody td:nth-child(5) { min-width: 180px; }
-.table-container table.table thead th:nth-child(6),
-.table-container table.table tbody td:nth-child(6) { width: 170px; white-space: nowrap; }
-.table-container table.table thead th:nth-child(7),
-.table-container table.table tbody td:nth-child(7) { width: 130px; }
-.table-container table.table thead th:nth-child(8),
-.table-container table.table tbody td:nth-child(8) { width: 100px; }
-.table-container table.table thead th:nth-child(9),
-.table-container table.table tbody td:nth-child(9) { width: 130px; white-space: nowrap; }
-.table-container table.table thead th:nth-child(10),
-.table-container table.table tbody td:nth-child(10) { width: 90px; }
-.table-container table.table thead th:nth-child(11),
-.table-container table.table tbody td:nth-child(11) { width: 90px; }
-.table-container table.table thead th:nth-child(12),
-.table-container table.table tbody td:nth-child(12) { width: 100px; }
-.table-container table.table thead th:nth-child(13),
-.table-container table.table tbody td:nth-child(13) { width: 240px; }
-
 .table-container tbody tr:hover {
   background-color: inherit !important;
 }
@@ -700,7 +667,6 @@ a:hover {
   border-radius: 4px;
   width: 220px;
   height: 124px;
-  display: block; /* remove baseline gap */
 }
 
 .youtube-preview {
@@ -769,13 +735,7 @@ a:hover {
 
 .video-nav {
   width: 220px;
-  margin: 2px auto 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
-.video-carousel { margin: 0 auto; }
-.video-nav .btn { width: 34px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center; }
 
 .video-counter {
   font-size: 0.75rem;
@@ -786,24 +746,8 @@ a:hover {
 .sort-indicator {
   margin-left: 4px;
   font-size: 0.8em;
-  display: inline-block;
-  vertical-align: middle;
+  float: right;
 }
-
-/* Keep rating stars, value and count in one line */
-.rating-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
-/* tighten spacing between star icons and text only inside rating */
-.rating-inline i.bi-star,
-.rating-inline i.bi-star-fill,
-.rating-inline i.bi-star-half { margin-right: 2px; }
-.rating-inline i.bi-star:last-of-type,
-.rating-inline i.bi-star-fill:last-of-type,
-.rating-inline i.bi-star-half:last-of-type { margin-right: 0; }
 
 th[data-sort-key] {
   cursor: pointer;
@@ -927,22 +871,6 @@ footer a:hover {
 
 /* Brand style for Add Seller button (without changing HTML) */
 .sellers-header .btn.btn-outline-primary {
-  background-color: var(--accent-color) !important;
-  border-color: var(--accent-color) !important;
-  color: #000 !important;
-}
-
-/* Brand the Discogs developer link and Save Settings button in the settings modal */
-#settingsModal .modal-body a {
-  background-color: var(--accent-color) !important;
-  border-color: var(--accent-color) !important;
-  color: #000 !important;
-  padding: 4px 10px;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-#settingsModal .btn-primary {
   background-color: var(--accent-color) !important;
   border-color: var(--accent-color) !important;
   color: #000 !important;
@@ -2562,7 +2490,7 @@ function renderRow(row, release) {
     `;
     row.appendChild(genreStyleCell);
     row.innerHTML += `
-        <td class="text-center"><span class="rating-inline">${ratingStars} ${ratingText}</span></td>
+        <td class="text-center">${ratingStars} ${ratingText}</td>
         <td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
         <td class="text-center">${release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-'}</td>
         <td class="text-center">${release.num_ratings || '0'}</td>
