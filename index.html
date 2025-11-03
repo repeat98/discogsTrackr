@@ -1659,46 +1659,40 @@ function extractYouTubeID(url) {
 // ==================== DISCOGS API CALLS ====================
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 1000;
+// Global request queue to strictly serialize Discogs API calls
+let requestQueue = Promise.resolve();
 
 async function makeDiscogsRequest(url) {
     const consumerKey = localStorage.getItem('discogs_consumer_key');
     const consumerSecret = localStorage.getItem('discogs_consumer_secret');
-    
     if (!consumerKey || !consumerSecret) {
         throw new Error('Discogs credentials not configured. Please go to Settings.');
     }
-    
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime;
-    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-        await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
-    }
-    
-    const fullUrl = `${url}${url.includes('?') ? '&' : '?'}key=${consumerKey}&secret=${consumerSecret}`;
-    
-    try {
+    // Enqueue this request to ensure global 1 req/sec
+    requestQueue = requestQueue.then(async () => {
+        const now = Date.now();
+        const timeSinceLastRequest = now - lastRequestTime;
+        if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+            await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+        }
+        const fullUrl = `${url}${url.includes('?') ? '&' : '?'}key=${consumerKey}&secret=${consumerSecret}`;
         const response = await fetch(fullUrl, {
             headers: {
                 'User-Agent': 'DiscogsSellerApp/1.0'
             }
         });
-        
         lastRequestTime = Date.now();
-        
         if (response.status === 429) {
             const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
             throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
         }
-        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         return await response.json();
-    } catch (error) {
-        console.error('Discogs API request failed:', error);
-        throw error;
-    }
+    });
+    // Return the enqueued promise to caller
+    return requestQueue;
 }
 
 async function getSellerInventory(username, page = 1, perPage = 100) {
