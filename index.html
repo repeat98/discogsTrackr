@@ -1700,13 +1700,17 @@ async function makeDiscogsRequest(url) {
         const fullUrl = `${url}${url.includes('?') ? '&' : '?'}key=${consumerKey}&secret=${consumerSecret}`;
         const response = await fetch(fullUrl, {
             headers: {
-                'User-Agent': 'DiscogsSellerApp/1.0'
+                'User-Agent': 'DiscogsSellerApp/1.0',
+                'Accept': 'application/json'
             }
         });
         lastRequestTime = Date.now();
         if (response.status === 429) {
             const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
             throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
+        }
+        if (response.status === 403) {
+            throw new Error('Forbidden (403). Verify Discogs API key/secret in Settings and wait a minute before retrying.');
         }
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -2005,6 +2009,12 @@ async function processSellerData(jobId, username, forceRefresh = false) {
                 
             } catch (error) {
                 console.error(`Error fetching details for release ${releaseId}:`, error);
+                if (error.message.includes('Forbidden (403)')) {
+                    updateJob(jobId, { status: 'error', currentStep: 'Discogs API error 403: Check API credentials in Settings and try again.' });
+                    updateProgress(jobId);
+                    finishJob(jobId, username);
+                    return;
+                }
                 if (error.message.includes('Rate limited')) {
                     updateJob(jobId, { currentStep: 'Rate limited, waiting...' });
                     updateProgress(jobId);
