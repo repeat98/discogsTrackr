@@ -746,7 +746,16 @@ a:hover {
 .sort-indicator {
   margin-left: 4px;
   font-size: 0.8em;
-  float: right;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Keep rating stars, value and count in one line */
+.rating-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 th[data-sort-key] {
@@ -2490,7 +2499,7 @@ function renderRow(row, release) {
     `;
     row.appendChild(genreStyleCell);
     row.innerHTML += `
-        <td class="text-center">${ratingStars} ${ratingText}</td>
+        <td class="text-center"><span class="rating-inline">${ratingStars} ${ratingText}</span></td>
         <td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
         <td class="text-center">${release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-'}</td>
         <td class="text-center">${release.num_ratings || '0'}</td>
