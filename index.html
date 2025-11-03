@@ -1606,9 +1606,27 @@ async function removeSeller(username, event) {
 async function refreshSeller(username, event) {
     event.stopPropagation();
     
-    if (!confirm(`Refresh data for ${username}? This will fetch the latest inventory.`)) return;
+    const seller = trackedSellers.find(s => s.username === username);
+    if (!seller) return;
     
-    await fetchSellerData(username, true);
+    // Check if inventory exists
+    const hasInventory = seller.inventory && seller.inventory.length > 0;
+    
+    let action;
+    if (hasInventory) {
+        action = await new Promise((resolve) => {
+            const choice = confirm(`Choose action for ${username}:\n\nOK = Process more releases (from cached inventory)\nCancel = Re-fetch inventory (use if seller added new items)`);
+            resolve(choice ? 'process' : 'refetch');
+        });
+    } else {
+        action = 'refetch';
+    }
+    
+    if (action === 'process') {
+        await processSellerReleases(username);
+    } else {
+        await fetchSellerInventory(username);
+    }
 }
 
 async function updateAllSellers() {
@@ -1870,13 +1888,36 @@ function getJobFromStorage(jobId) {
 }
 
 // ==================== MAIN FETCH LOGIC ====================
-async function fetchSellerData(username, forceRefresh = false) {
+// Fetch inventory only (for new sellers or when inventory needs refresh)
+async function fetchSellerInventory(username) {
     const seller = trackedSellers.find(s => s.username === username);
     if (!seller) return;
     
-    // Check if we have inventory cached (unless force refresh)
-    if (!forceRefresh && seller.inventory && seller.inventory.length > 0) {
-        console.log(`Using cached inventory for ${username}`);
+    const jobId = 'job_' + Date.now();
+    currentJobId = jobId;
+    
+    try {
+        localStorage.setItem('currentJobId', jobId);
+        localStorage.setItem('currentUsername', username);
+    } catch (e) {
+        console.warn('Could not store job metadata in localStorage:', e);
+    }
+    
+    const job = createJob(jobId, username);
+    seller.currentJob = job;
+    updateSellerList();
+    
+    await fetchInventoryOnly(jobId, username);
+}
+
+// Process releases from cached inventory (incremental)
+async function processSellerReleases(username) {
+    const seller = trackedSellers.find(s => s.username === username);
+    if (!seller) return;
+    
+    if (!seller.inventory || seller.inventory.length === 0) {
+        alert('No inventory cached. Please fetch inventory first.');
+        return;
     }
     
     const jobId = 'job_' + Date.now();
@@ -1890,27 +1931,28 @@ async function fetchSellerData(username, forceRefresh = false) {
     }
     
     const job = createJob(jobId, username);
-    
-    // Update seller's currentJob
     seller.currentJob = job;
     updateSellerList();
     
-    await processSellerData(jobId, username, forceRefresh);
+    await processReleasesFromInventory(jobId, username);
 }
 
-async function processSellerData(jobId, username, forceRefresh = false) {
+// Legacy function for backward compatibility (fetches inventory then processes)
+async function fetchSellerData(username, forceRefresh = false) {
+    if (forceRefresh) {
+        await fetchSellerInventory(username);
+    } else {
+        await processSellerReleases(username);
+    }
+}
+
+// Fetch inventory only - no release processing
+async function fetchInventoryOnly(jobId, username) {
     try {
         const seller = trackedSellers.find(s => s.username === username);
         if (!seller) return;
         
         let allListings = [];
-        
-        // Fetch or use cached inventory
-        if (!forceRefresh && seller.inventory && seller.inventory.length > 0) {
-            allListings = seller.inventory;
-            updateJob(jobId, { currentStep: 'Using cached inventory...' });
-            updateProgress(jobId);
-        } else {
             updateJob(jobId, { currentStep: 'Fetching inventory...' });
             updateProgress(jobId);
             
@@ -1983,16 +2025,9 @@ async function processSellerData(jobId, username, forceRefresh = false) {
                 }
             }
             
-            // Save inventory
-            seller.inventory = allListings;
-            await saveSellerDataToDB(seller);
-            
-            // If we fetched 100+ pages, we've likely exhausted rate limits
-            // Just process a small batch and let user refresh later for more
-            if (page >= 100) {
-                console.log(`Fetched ${page} pages - will process in batches to avoid rate limits`);
-            }
-        }
+        // Save inventory
+        seller.inventory = allListings;
+        await saveSellerDataToDB(seller);
         
         if (allListings.length === 0) {
             updateJob(jobId, {
@@ -2003,6 +2038,48 @@ async function processSellerData(jobId, username, forceRefresh = false) {
             finishJob(jobId, username);
             return;
         }
+        
+        // Complete inventory fetch
+        seller.lastUpdated = Date.now();
+        saveTrackedSellers();
+        updateJob(jobId, {
+            status: 'complete',
+            currentStep: `Inventory fetched: ${allListings.length} items. Click refresh again to process releases.`
+        });
+        updateProgress(jobId);
+        finishJob(jobId, username);
+        
+    } catch (error) {
+        console.error('Error fetching inventory:', error);
+        updateJob(jobId, {
+            status: 'error',
+            currentStep: `Error: ${error.message}`
+        });
+        updateProgress(jobId);
+        finishJob(jobId, username);
+    }
+}
+
+// Process releases from cached inventory (batch of 50)
+async function processReleasesFromInventory(jobId, username) {
+    try {
+        const seller = trackedSellers.find(s => s.username === username);
+        if (!seller) return;
+        
+        const allListings = seller.inventory || [];
+        
+        if (allListings.length === 0) {
+            updateJob(jobId, {
+                status: 'error',
+                currentStep: 'No inventory cached'
+            });
+            updateProgress(jobId);
+            finishJob(jobId, username);
+            return;
+        }
+        
+        updateJob(jobId, { currentStep: 'Analyzing inventory...' });
+        updateProgress(jobId);
         
         // Process unique releases
         const uniqueReleases = {};
@@ -2183,7 +2260,7 @@ async function processSellerData(jobId, username, forceRefresh = false) {
         finishJob(jobId, username);
         
     } catch (error) {
-        console.error('Error processing seller data:', error);
+        console.error('Error processing releases:', error);
         updateJob(jobId, {
             status: 'error',
             currentStep: `Error: ${error.message}`
@@ -2197,10 +2274,10 @@ async function resumeJob(jobId, username) {
     const job = getJobFromStorage(jobId);
     if (!job) return;
     
-    // Job no longer stores processedReleases; just resume processing
+    // Resume processing releases from cached inventory
     updateProgress(jobId);
     
-    await processSellerData(jobId, username, false);
+    await processReleasesFromInventory(jobId, username);
 }
 
 function updateProgress(jobId) {
