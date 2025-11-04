@@ -926,9 +926,9 @@ footer a:hover {
                             class="me-2"
                             style="height: 24px; width: auto"
                         />
-                        DISCOGS TRACKR
+                        TRACKR
                         <span class="powered-by d-none d-md-inline fst-italic fw-light ms-1">
-                            Track your favorite sellers
+                            Track discogs sellers
                         </span>
                     </a>
                     <div class="d-flex align-items-center">
@@ -3291,30 +3291,48 @@ function renderTable() {
     });
 
     if (!processingActive) {
-        // Normal behavior: keep only rows for the current page
+        // Normal behavior: keep only rows for the current page and in correct order
         const currentPageIds = new Set(pageData.map(r => String(r.id)));
         existingRows.forEach((row, rid) => {
             if (!currentPageIds.has(rid)) {
                 row.remove();
                 existingRows.delete(rid);
+            } else {
+                row.style.display = '';
+            }
+        });
+        // Append rows in order
+        pageData.forEach((release) => {
+            const idStr = String(release.id);
+            let row = existingRows.get(idStr);
+            if (!row) {
+                row = document.createElement('tr');
+                row.setAttribute('data-release-id', idStr);
+                renderRow(row, release);
+            }
+            tbody.appendChild(row);
+        });
+    } else {
+        // Processing: do not remove or reorder existing rows; just hide/show to reflect filters
+        const currentPageIds = new Set(pageData.map(r => String(r.id)));
+        existingRows.forEach((row, rid) => {
+            if (currentPageIds.has(rid)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        // Create rows that are needed but not yet present (append at end)
+        pageData.forEach((release) => {
+            const idStr = String(release.id);
+            if (!existingRows.has(idStr)) {
+                const row = document.createElement('tr');
+                row.setAttribute('data-release-id', idStr);
+                renderRow(row, release);
+                tbody.appendChild(row);
             }
         });
     }
-
-    // Append rows; avoid moving existing rows while processing to prevent iframe reloads
-    pageData.forEach((release) => {
-        const idStr = String(release.id);
-        let row = existingRows.get(idStr);
-        if (!row) {
-            row = document.createElement('tr');
-            row.setAttribute('data-release-id', idStr);
-            renderRow(row, release);
-            tbody.appendChild(row);
-        } else if (!processingActive) {
-            // Only reorder rows when not processing
-            tbody.appendChild(row);
-        }
-    });
     
     document.getElementById('resultsSection').style.display = 'block';
 }
