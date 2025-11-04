@@ -2918,6 +2918,14 @@ function updateProgress(jobId) {
     }
 }
 
+function isProcessingActive() {
+    try {
+        return Array.isArray(trackedSellers) && trackedSellers.some(s => s && s.currentJob && s.currentJob.status === 'processing');
+    } catch (e) {
+        return false;
+    }
+}
+
 function cancelJob(jobId, event) {
     if (event) {
         event.stopPropagation();
@@ -3255,6 +3263,14 @@ function renderTable() {
         return;
     }
     
+    // Ensure any placeholder/no-results rows are removed when we have data
+    Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+        if (!tr.hasAttribute('data-release-id') || tr.querySelector('.no-results')) {
+            tr.remove();
+        }
+    });
+
+    const processingActive = isProcessingActive();
     const start = (currentPage - 1) * pageSize;
     const end = Math.min(start + pageSize, filteredData.length);
     const pageData = filteredData.slice(start, end);
@@ -3266,16 +3282,18 @@ function renderTable() {
         if (rid) existingRows.set(rid, row);
     });
 
-    // Remove rows not on the current page
-    const currentPageIds = new Set(pageData.map(r => String(r.id)));
-    existingRows.forEach((row, rid) => {
-        if (!currentPageIds.has(rid)) {
-            row.remove();
-            existingRows.delete(rid);
-        }
-    });
+    if (!processingActive) {
+        // Normal behavior: keep only rows for the current page
+        const currentPageIds = new Set(pageData.map(r => String(r.id)));
+        existingRows.forEach((row, rid) => {
+            if (!currentPageIds.has(rid)) {
+                row.remove();
+                existingRows.delete(rid);
+            }
+        });
+    }
 
-    // Append rows in correct order; create if missing, keep existing untouched
+    // Append rows; avoid moving existing rows while processing to prevent iframe reloads
     pageData.forEach((release) => {
         const idStr = String(release.id);
         let row = existingRows.get(idStr);
@@ -3283,8 +3301,11 @@ function renderTable() {
             row = document.createElement('tr');
             row.setAttribute('data-release-id', idStr);
             renderRow(row, release);
+            tbody.appendChild(row);
+        } else if (!processingActive) {
+            // Only reorder rows when not processing
+            tbody.appendChild(row);
         }
-        tbody.appendChild(row);
     });
     
     document.getElementById('resultsSection').style.display = 'block';
