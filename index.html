@@ -856,6 +856,118 @@ body.dark-mode .btn-close {
   .powered-by {
     display: none;
   }
+
+  /* Hide table headers on mobile */
+  .table-container thead {
+    display: none;
+  }
+
+  /* Force table to take full width on mobile */
+  .table-container table {
+    width: 100%;
+    display: block;
+  }
+
+  .table-container tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .table-container tbody tr {
+    display: block;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  /* Mobile cell styling */
+  .table-container tbody tr td {
+    display: block;
+    width: 100% !important;
+    padding: 12px;
+  }
+
+  .mobile-cell {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mobile-preview {
+    margin-bottom: 8px;
+  }
+
+  .mobile-preview iframe {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    max-width: 100%;
+  }
+
+  .mobile-title {
+    margin-bottom: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text-color);
+  }
+
+  .mobile-rating {
+    font-size: 14px;
+  }
+
+  /* Mobile filter toggle */
+  .mobile-extra-filters-wrapper {
+    display: none;
+  }
+
+  .mobile-toggle-btn {
+    display: block;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    text-align: center;
+    line-height: 40px;
+    border-radius: 50%;
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .mobile-toggle-btn i {
+    transition: transform 0.3s;
+  }
+
+  .mobile-toggle-btn.open i {
+    transform: rotate(180deg);
+  }
+
+  .mobile-extra-filters-wrapper.show {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-input,
+  .filter-select {
+    font-size: 14px;
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+}
+
+/* Desktop: show all filters inline */
+@media (min-width: 769px) {
+  #mobile-filters-toggle {
+    display: none;
+  }
+
+  .mobile-extra-filters-wrapper {
+    display: inline-flex;
+    flex-direction: row;
+    gap: 8px;
+  }
 }
 
 /* -----------------------
@@ -978,21 +1090,32 @@ footer a:hover {
                             <option value="">All Labels</option>
                         </select>
                     </div>
-                    <div class="filter-group">
-                        <label for="year_range" class="filter-label">Year range</label>
-                        <input type="text" id="year_range" name="year_range" class="filter-input" placeholder="e.g. 2010-2015">
-                    </div>
-                    <div class="filter-group">
-                        <label for="rating_range" class="filter-label">Rating range</label>
-                        <input type="text" id="rating_range" name="rating_range" class="filter-input" placeholder="e.g. 3-5">
-                    </div>
-                    <div class="filter-group">
-                        <label for="rating_count_range" class="filter-label">Rating Count</label>
-                        <input type="text" id="rating_count_range" name="rating_count_range" class="filter-input" placeholder="e.g. 10-100">
-                    </div>
-                    <div class="filter-group">
-                        <label for="price_range" class="filter-label">Price range</label>
-                        <input type="text" id="price_range" name="price_range" class="filter-input" placeholder="e.g. 5-25">
+                    <!-- Mobile extra filters toggle button (only visible on mobile) -->
+                    <button
+                        type="button"
+                        id="mobile-filters-toggle"
+                        class="btn btn-secondary mobile-toggle-btn"
+                    >
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <!-- Extra filters wrapped (year, rating, count, price) -->
+                    <div class="mobile-extra-filters-wrapper">
+                        <div class="filter-group">
+                            <label for="year_range" class="filter-label">Year range</label>
+                            <input type="text" id="year_range" name="year_range" class="filter-input" placeholder="e.g. 2010-2015">
+                        </div>
+                        <div class="filter-group">
+                            <label for="rating_range" class="filter-label">Rating range</label>
+                            <input type="text" id="rating_range" name="rating_range" class="filter-input" placeholder="e.g. 3-5">
+                        </div>
+                        <div class="filter-group">
+                            <label for="rating_count_range" class="filter-label">Rating Count</label>
+                            <input type="text" id="rating_count_range" name="rating_count_range" class="filter-input" placeholder="e.g. 10-100">
+                        </div>
+                        <div class="filter-group">
+                            <label for="price_range" class="filter-label">Price range</label>
+                            <input type="text" id="price_range" name="price_range" class="filter-input" placeholder="e.g. 5-25">
+                        </div>
                     </div>
                 </form>
             </div>
@@ -1320,6 +1443,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         navSearch.addEventListener('input', debounce(() => {
             applyFilters();
         }, 250));
+    }
+
+    // Mobile filter toggle
+    const mobileFiltersToggle = document.getElementById('mobile-filters-toggle');
+    const mobileExtraFilters = document.querySelector('.mobile-extra-filters-wrapper');
+    if (mobileFiltersToggle && mobileExtraFilters) {
+        mobileFiltersToggle.addEventListener('click', () => {
+            mobileFiltersToggle.classList.toggle('open');
+            mobileExtraFilters.classList.toggle('show');
+        });
     }
 
     // Load tracked sellers and display
@@ -3338,33 +3471,14 @@ function renderTable() {
 }
 
 function renderRow(row, release) {
+    const isMobile = window.innerWidth <= 768;
+    
     let genres = [];
     let styles = [];
     try {
         if (release.genres) genres = JSON.parse(release.genres);
         if (release.styles) styles = JSON.parse(release.styles);
     } catch (e) {}
-    
-    const genreStyleCell = document.createElement('td');
-    if (genres.length > 0) {
-        genres.forEach(g => {
-            const span = document.createElement('span');
-            span.className = 'badge-genre';
-            span.textContent = g;
-            genreStyleCell.appendChild(span);
-        });
-    }
-    if (styles.length > 0) {
-        styles.forEach(s => {
-            const span = document.createElement('span');
-            span.className = 'badge-style';
-            span.textContent = s;
-            genreStyleCell.appendChild(span);
-        });
-    }
-    if (genres.length === 0 && styles.length === 0) {
-        genreStyleCell.textContent = '-';
-    }
     
     // Video cell
     let videoCell = '';
@@ -3378,81 +3492,185 @@ function renderRow(row, release) {
     
     const videoLinks = sanitizeVideoLinks(rawVideoLinks);
     
-    if (videoLinks.length > 0) {
-        const firstVideo = videoLinks[0];
-        const firstVideoId = extractYouTubeID(firstVideo.url);
-        
-        if (firstVideoId) {
-            const videosDataAttr = encodeURIComponent(JSON.stringify(videoLinks));
-            videoCell = `
-                <div class="video-carousel" id="carousel-${release.id}" data-release-id="${release.id}">
-                    <iframe id="youtube-player-${release.id}" class="table-iframe" loading="lazy" 
+    if (isMobile) {
+        // Mobile layout: single cell with all content
+        let previewContent = '';
+        if (videoLinks.length > 0) {
+            const firstVideo = videoLinks[0];
+            const firstVideoId = extractYouTubeID(firstVideo.url);
+            if (firstVideoId) {
+                previewContent = `<div class="mobile-preview">
+                    <iframe id="youtube-player-${release.id}" loading="lazy" 
                         title="YouTube video player" aria-label="YouTube video player" 
                         src="https://www.youtube.com/embed/${firstVideoId}?enablejsapi=1&rel=0&modestbranding=1" 
                         frameborder="0" 
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen 
-                        style="width: 220px; height: 124px;">
-                    </iframe>
-            `;
-            
-            if (videoLinks.length > 1) {
-                videoCell += `
-                    <div class="video-nav d-flex justify-content-between align-items-center mt-1">
-                        <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="-1" data-videos="${videosDataAttr}">
-                            <i class="bi bi-chevron-left"></i>
-                        </button>
-                        <span class="video-counter" id="counter-${release.id}">1 / ${videoLinks.length}</span>
-                        <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="1" data-videos="${videosDataAttr}">
-                            <i class="bi bi-chevron-right"></i>
-                        </button>
-                    </div>
-                `;
+                        allowfullscreen
+                        style="width: 100%; height: auto; aspect-ratio: 16 / 9;"></iframe>
+                </div>`;
+            } else {
+                previewContent = '<div class="mobile-preview text-muted">Invalid YouTube link</div>';
             }
-            videoCell += '</div>';
         } else {
-            const linksToShow = videoLinks.slice(0, 3);
-            if (linksToShow.length > 0) {
-                videoCell = '<div class="video-links">';
-                linksToShow.forEach((video, idx) => {
-                    videoCell += `<a href="${escapeHtml(video.url)}" target="_blank" class="btn btn-sm btn-outline-primary mb-1" style="display: block; font-size: 0.75rem;">
-                        <i class="bi bi-play-circle"></i> ${escapeHtml(video.title || 'Video ' + (idx + 1))}
-                    </a>`;
-                });
+            previewContent = '<div class="mobile-preview text-muted">No YouTube links</div>';
+        }
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'mobile-title';
+        const titleLink = document.createElement('a');
+        titleLink.href = release.url;
+        titleLink.target = '_blank';
+        titleLink.className = 'release-link';
+        titleLink.textContent = release.title || release.artist_title;
+        titleDiv.appendChild(titleLink);
+        
+        const ratingDiv = document.createElement('div');
+        ratingDiv.className = 'mobile-rating';
+        if (release.avg_rating) {
+            ratingDiv.innerHTML = `${generateStars(release.avg_rating)} ${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}`;
+        } else {
+            ratingDiv.innerHTML = '<div class="text-muted">No rating</div>';
+        }
+        
+        // Additional info
+        const infoDiv = document.createElement('div');
+        infoDiv.style.fontSize = '12px';
+        infoDiv.style.opacity = '0.8';
+        infoDiv.style.marginTop = '8px';
+        let infoText = [];
+        if (release.artist) infoText.push(`Artist: ${release.artist}`);
+        if (release.label) infoText.push(`Label: ${release.label}`);
+        if (release.year) infoText.push(`Year: ${release.year}`);
+        if (release.price) infoText.push(`Price: $${release.price.toFixed(2)}`);
+        if (release.seller_username) infoText.push(`Seller: ${release.seller_username}`);
+        infoDiv.textContent = infoText.join(' • ');
+        
+        const tdMobile = document.createElement('td');
+        tdMobile.className = 'mobile-cell';
+        tdMobile.innerHTML = previewContent;
+        tdMobile.appendChild(titleDiv);
+        tdMobile.appendChild(ratingDiv);
+        tdMobile.appendChild(infoDiv);
+        
+        // Add genre/style badges if available
+        if (genres.length > 0 || styles.length > 0) {
+            const badgesDiv = document.createElement('div');
+            badgesDiv.style.marginTop = '8px';
+            genres.forEach(g => {
+                const span = document.createElement('span');
+                span.className = 'badge-genre';
+                span.textContent = g;
+                badgesDiv.appendChild(span);
+            });
+            styles.forEach(s => {
+                const span = document.createElement('span');
+                span.className = 'badge-style';
+                span.textContent = s;
+                badgesDiv.appendChild(span);
+            });
+            tdMobile.appendChild(badgesDiv);
+        }
+        
+        row.appendChild(tdMobile);
+    } else {
+        // Desktop layout: multiple columns
+        const genreStyleCell = document.createElement('td');
+        if (genres.length > 0) {
+            genres.forEach(g => {
+                const span = document.createElement('span');
+                span.className = 'badge-genre';
+                span.textContent = g;
+                genreStyleCell.appendChild(span);
+            });
+        }
+        if (styles.length > 0) {
+            styles.forEach(s => {
+                const span = document.createElement('span');
+                span.className = 'badge-style';
+                span.textContent = s;
+                genreStyleCell.appendChild(span);
+            });
+        }
+        if (genres.length === 0 && styles.length === 0) {
+            genreStyleCell.textContent = '-';
+        }
+        
+        if (videoLinks.length > 0) {
+            const firstVideo = videoLinks[0];
+            const firstVideoId = extractYouTubeID(firstVideo.url);
+            
+            if (firstVideoId) {
+                const videosDataAttr = encodeURIComponent(JSON.stringify(videoLinks));
+                videoCell = `
+                    <div class="video-carousel" id="carousel-${release.id}" data-release-id="${release.id}">
+                        <iframe id="youtube-player-${release.id}" class="table-iframe" loading="lazy" 
+                            title="YouTube video player" aria-label="YouTube video player" 
+                            src="https://www.youtube.com/embed/${firstVideoId}?enablejsapi=1&rel=0&modestbranding=1" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen 
+                            style="width: 220px; height: 124px;">
+                        </iframe>
+                `;
+                
+                if (videoLinks.length > 1) {
+                    videoCell += `
+                        <div class="video-nav d-flex justify-content-between align-items-center mt-1">
+                            <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="-1" data-videos="${videosDataAttr}">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <span class="video-counter" id="counter-${release.id}">1 / ${videoLinks.length}</span>
+                            <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="1" data-videos="${videosDataAttr}">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                    `;
+                }
                 videoCell += '</div>';
+            } else {
+                const linksToShow = videoLinks.slice(0, 3);
+                if (linksToShow.length > 0) {
+                    videoCell = '<div class="video-links">';
+                    linksToShow.forEach((video, idx) => {
+                        videoCell += `<a href="${escapeHtml(video.url)}" target="_blank" class="btn btn-sm btn-outline-primary mb-1" style="display: block; font-size: 0.75rem;">
+                            <i class="bi bi-play-circle"></i> ${escapeHtml(video.title || 'Video ' + (idx + 1))}
+                        </a>`;
+                    });
+                    videoCell += '</div>';
+                }
             }
         }
-    }
-    
-    if (!videoCell) {
-        videoCell = `
-            <a href="https://www.youtube.com/results?search_query=${encodeURIComponent((release.artist || '') + ' ' + (release.title || release.artist_title || ''))}" 
-               target="_blank" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-search"></i> Search
-            </a>
+        
+        if (!videoCell) {
+            videoCell = `
+                <a href="https://www.youtube.com/results?search_query=${encodeURIComponent((release.artist || '') + ' ' + (release.title || release.artist_title || ''))}" 
+                   target="_blank" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-search"></i> Search
+                </a>
+            `;
+        }
+        
+        const ratingStars = release.avg_rating ? generateStars(release.avg_rating) : '<div class="text-muted">No rating</div>';
+        const ratingText = release.avg_rating ? `${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}` : '';
+        
+        row.innerHTML = `
+            <td><a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a></td>
+            <td>${escapeHtml(release.artist || '-')}</td>
+            <td>${escapeHtml(release.label || '-')}</td>
+            <td class="text-center">${release.year || '-'}</td>
+        `;
+        row.appendChild(genreStyleCell);
+        row.innerHTML += `
+            <td class="text-center">${ratingStars} ${ratingText}</td>
+            <td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
+            <td class="text-center">${release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-'}</td>
+            <td class="text-center">${release.num_ratings || '0'}</td>
+            <td class="text-center">${release.have_count || '0'}</td>
+            <td class="text-center">${release.want_count || '0'}</td>
+            <td class="text-center">${release.price ? '$' + release.price.toFixed(2) : '-'}</td>
+            <td class="text-center">${videoCell}</td>
         `;
     }
-    
-    const ratingStars = release.avg_rating ? generateStars(release.avg_rating) : '<div class="text-muted">No rating</div>';
-    const ratingText = release.avg_rating ? `${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}` : '';
-    
-    row.innerHTML = `
-        <td><a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a></td>
-        <td>${escapeHtml(release.artist || '-')}</td>
-        <td>${escapeHtml(release.label || '-')}</td>
-        <td class="text-center">${release.year || '-'}</td>
-    `;
-    row.appendChild(genreStyleCell);
-    row.innerHTML += `
-        <td class="text-center">${ratingStars} ${ratingText}</td>
-        <td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
-        <td class="text-center">${release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-'}</td>
-        <td class="text-center">${release.num_ratings || '0'}</td>
-        <td class="text-center">${release.have_count || '0'}</td>
-        <td class="text-center">${release.want_count || '0'}</td>
-        <td class="text-center">${release.price ? '$' + release.price.toFixed(2) : '-'}</td>
-        <td class="text-center">${videoCell}</td>
-    `;
 }
 
 function setupTableHeaders() {
