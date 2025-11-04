@@ -7,7 +7,7 @@
     
     <!-- Open Graph / Social Media Meta Tags -->
     <meta property="og:title" content="Discogs Seller Tracker">
-    <meta property="og:description" content="Track discogs sellers - Track your favorite sellers">
+    <meta property="og:description" content="scan discogs sellers and discover what else they have available. perfect for when you're ordering a record from a specific dealer - check out their other great releases and save on shipping costs.">
     <meta property="og:image" content="img/screen.jpg">
     <meta property="og:url" content="https://discogstrackr.com/">
     <meta property="og:type" content="website">
@@ -1006,10 +1006,19 @@ footer a:hover {
 }
 
 /* Brand style for Add Seller button (without changing HTML) */
-.sellers-header .btn.btn-outline-primary {
+.sellers-header .btn.btn-outline-primary,
+.sellers-header .btn.btn-sm.btn-outline-primary {
   background-color: var(--accent-color) !important;
   border-color: var(--accent-color) !important;
   color: #000 !important;
+}
+
+.sellers-header .btn.btn-outline-primary:hover,
+.sellers-header .btn.btn-sm.btn-outline-primary:hover {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+  opacity: 0.9;
 }
 /* Brand utility styles */
 .btn-brand {
@@ -1019,7 +1028,19 @@ footer a:hover {
 }
 .brand-link {
   color: var(--accent-color) !important;
-  text-decoration: none;
+  text-decoration: none !important;
+  font-weight: 500;
+}
+
+.brand-link:hover {
+  color: var(--accent-color) !important;
+  text-decoration: underline !important;
+  opacity: 0.9;
+}
+
+.text-muted .brand-link,
+.text-muted small .brand-link {
+  color: var(--accent-color) !important;
 }
 /* -----------------------
    SEARCH TO THE RIGHT (CSS-only)
