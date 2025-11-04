@@ -516,6 +516,7 @@ body.dark-mode .sun-icon {
   padding: 12px 16px;
   cursor: pointer;
   position: relative;
+  white-space: nowrap; /* keep headers on a single line */
 }
 
 body.dark-mode .table-container thead tr th {
@@ -747,9 +748,9 @@ a:hover {
 }
 
 .sort-indicator {
-  margin-left: 4px;
-  font-size: 0.8em;
-  float: right;
+  margin-left: 6px;
+  font-size: 0.9em;
+  display: inline-block; /* keep icon inline to avoid wrapping */
 }
 
 th[data-sort-key] {
