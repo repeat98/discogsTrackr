@@ -1232,6 +1232,16 @@ footer a:hover {
                         <label for="consumerSecret" class="form-label">Consumer Secret</label>
                         <input type="text" class="form-control" id="consumerSecret" placeholder="Your consumer secret">
                     </div>
+                    <hr>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="sortDropdownsByRating" name="sortDropdownsByRating">
+                            <label class="form-check-label" for="sortDropdownsByRating">
+                                Sort artist and label dropdowns by ratings
+                            </label>
+                        </div>
+                        <small class="text-muted">When enabled, artists and labels will be sorted by their average rating instead of by count.</small>
+                    </div>
                     <div class="alert alert-warning small mb-0" role="alert">
                         <i class="bi bi-info-circle"></i> <strong>Note:</strong> Discogs limits non-owned inventories to 100 pages (max 10,000 items). Sellers with larger inventories will only show their first 10,000 items. This is a Discogs API restriction.
                     </div>
@@ -1531,6 +1541,8 @@ function openSettings() {
     const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
     document.getElementById('consumerKey').value = localStorage.getItem('discogs_consumer_key') || '';
     document.getElementById('consumerSecret').value = localStorage.getItem('discogs_consumer_secret') || '';
+    const sortByRating = localStorage.getItem('sort_dropdowns_by_rating') === 'true';
+    document.getElementById('sortDropdownsByRating').checked = sortByRating;
     modal.show();
 }
 
@@ -1545,6 +1557,8 @@ function saveSettings() {
     
     localStorage.setItem('discogs_consumer_key', consumerKey);
     localStorage.setItem('discogs_consumer_secret', consumerSecret);
+    const sortByRating = document.getElementById('sortDropdownsByRating').checked;
+    localStorage.setItem('sort_dropdowns_by_rating', sortByRating ? 'true' : 'false');
     
     // Track API connection
     if (typeof gtag !== 'undefined') {
@@ -1558,6 +1572,11 @@ function saveSettings() {
     modal.hide();
     
     alert('Settings saved successfully!');
+    
+    // Repopulate filter options if data is already loaded
+    if (allData.length > 0) {
+        populateFilterOptions(allData);
+    }
 }
 
 // ==================== SELLER MANAGEMENT ====================
@@ -3248,6 +3267,11 @@ function populateFilterOptions(releases) {
     const artistCounts = new Map();
     const labelCounts = new Map();
     
+    // For rating-based sorting: track ratings and counts separately
+    const artistRatings = new Map(); // Map of artist -> { totalRating: number, count: number }
+    const labelRatings = new Map();  // Map of label -> { totalRating: number, count: number }
+    const sortByRating = localStorage.getItem('sort_dropdowns_by_rating') === 'true';
+    
     releases.forEach(release => {
         if (release.genres) {
             try {
@@ -3269,20 +3293,38 @@ function populateFilterOptions(releases) {
         
         if (release.artist) {
             const artists = release.artist.split(/[,&\/]/).map(a => a.trim()).filter(a => a);
+            const rating = release.avg_rating ? parseFloat(release.avg_rating) : 0;
             artists.forEach(a => {
                 artistCounts.set(a, (artistCounts.get(a) || 0) + 1);
+                if (sortByRating && rating > 0) {
+                    if (!artistRatings.has(a)) {
+                        artistRatings.set(a, { totalRating: 0, count: 0 });
+                    }
+                    const stats = artistRatings.get(a);
+                    stats.totalRating += rating;
+                    stats.count += 1;
+                }
             });
         }
         
         if (release.label) {
             const labels = release.label.split(/[,&\/]/).map(l => l.trim()).filter(l => l);
+            const rating = release.avg_rating ? parseFloat(release.avg_rating) : 0;
             labels.forEach(l => {
                 labelCounts.set(l, (labelCounts.get(l) || 0) + 1);
+                if (sortByRating && rating > 0) {
+                    if (!labelRatings.has(l)) {
+                        labelRatings.set(l, { totalRating: 0, count: 0 });
+                    }
+                    const stats = labelRatings.get(l);
+                    stats.totalRating += rating;
+                    stats.count += 1;
+                }
             });
         }
     });
     
-    function populateSelect(select, counts, currentValue) {
+    function populateSelect(select, counts, currentValue, ratingsMap = null) {
         select.innerHTML = '';
         const allOption = document.createElement('option');
         allOption.value = '';
@@ -3291,24 +3333,48 @@ function populateFilterOptions(releases) {
                               select.id === 'artist' ? 'All Artists' : 'All Labels';
         select.appendChild(allOption);
         
-        Array.from(counts.entries())
-            .sort((a, b) => {
+        // Calculate average ratings if sorting by rating
+        const entries = Array.from(counts.entries()).map(([value, count]) => {
+            let avgRating = 0;
+            if (ratingsMap && ratingsMap.has(value)) {
+                const stats = ratingsMap.get(value);
+                avgRating = stats.count > 0 ? stats.totalRating / stats.count : 0;
+            }
+            return [value, count, avgRating];
+        });
+        
+        entries.sort((a, b) => {
+            // If sorting by rating and we have ratings for this dropdown
+            if (ratingsMap && (select.id === 'artist' || select.id === 'label')) {
+                const ratingA = a[2];
+                const ratingB = b[2];
+                // Sort by rating descending, then by count, then alphabetically
+                if (ratingB !== ratingA) return ratingB - ratingA;
                 if (b[1] !== a[1]) return b[1] - a[1];
                 return a[0].localeCompare(b[0]);
-            })
-            .forEach(([value, count]) => {
-                const option = document.createElement('option');
-                option.value = value;
-                option.textContent = `${value} (${count})`;
-                if (value === currentValue) option.selected = true;
-                select.appendChild(option);
-            });
+            } else {
+                // Default: sort by count, then alphabetically
+                if (b[1] !== a[1]) return b[1] - a[1];
+                return a[0].localeCompare(b[0]);
+            }
+        });
+        
+        entries.forEach(([value, count, avgRating]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            const displayText = ratingsMap && (select.id === 'artist' || select.id === 'label') && avgRating > 0
+                ? `${value} (${count}) ${avgRating.toFixed(2)}`
+                : `${value} (${count})`;
+            option.textContent = displayText;
+            if (value === currentValue) option.selected = true;
+            select.appendChild(option);
+        });
     }
     
     populateSelect(genreSelect, genreCounts, genreSelect.value);
     populateSelect(styleSelect, styleCounts, styleSelect.value);
-    populateSelect(artistSelect, artistCounts, artistSelect.value);
-    populateSelect(labelSelect, labelCounts, labelSelect.value);
+    populateSelect(artistSelect, artistCounts, artistSelect.value, sortByRating ? artistRatings : null);
+    populateSelect(labelSelect, labelCounts, labelSelect.value, sortByRating ? labelRatings : null);
 }
 
 function applyFilters(preservePage = null) {
