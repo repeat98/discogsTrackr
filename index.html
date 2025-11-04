@@ -3096,7 +3096,8 @@ function populateFilterOptions(releases) {
 }
 
 function applyFilters(preservePage = null) {
-    const q = (document.getElementById('navSearchInput')?.value || '').toLowerCase().trim();
+    // Read from navbar search; fallback to legacy input if present
+    const q = ((document.getElementById('navSearchInput')?.value) || (document.getElementById('text_search')?.value) || '').toLowerCase().trim();
     const selectedGenre = document.getElementById('genre').value;
     const selectedStyle = document.getElementById('style').value;
     const selectedArtist = document.getElementById('artist').value;
@@ -3139,10 +3140,17 @@ function applyFilters(preservePage = null) {
             return false;
         }
         if (q) {
+            // Build a comprehensive haystack across common fields
+            let genresStr = '';
+            let stylesStr = '';
+            try { if (release.genres) genresStr = JSON.parse(release.genres).join(' '); } catch (e) {}
+            try { if (release.styles) stylesStr = JSON.parse(release.styles).join(' '); } catch (e) {}
             const hay = (
-                (release.title || '') + ' ' +
+                (release.title || release.artist_title || '') + ' ' +
                 (release.artist || '') + ' ' +
-                (release.label || '')
+                (release.label || '') + ' ' +
+                genresStr + ' ' + stylesStr + ' ' +
+                (release.seller_username || '')
             ).toLowerCase();
             if (!hay.includes(q)) return false;
         }
