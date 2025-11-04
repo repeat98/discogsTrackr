@@ -1546,6 +1546,14 @@ function saveSettings() {
     localStorage.setItem('discogs_consumer_key', consumerKey);
     localStorage.setItem('discogs_consumer_secret', consumerSecret);
     
+    // Track API connection
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'api_connected', {
+            event_category: 'Discogs API',
+            event_label: 'User configured API credentials'
+        });
+    }
+    
     const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
     modal.hide();
     
@@ -1805,6 +1813,14 @@ async function addSeller(username) {
     await saveSellerDataToDB(newSeller);
     updateSellerList();
     
+    // Track seller scan
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'seller_scan', {
+            event_category: 'Seller Tracking',
+            event_label: username
+        });
+    }
+    
     // Start fetching and processing automatically
     await fetchAndProcessSeller(username);
 }
@@ -1829,6 +1845,14 @@ async function refreshSeller(username, event) {
     const seller = trackedSellers.find(s => s.username === username);
     if (!seller) return;
     
+    // Track seller refresh
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'seller_scan', {
+            event_category: 'Seller Tracking',
+            event_label: `Refresh: ${username}`
+        });
+    }
+    
     // Smart update: fetch inventory, compare, remove old releases, process only new ones
     await updateSellerWithDiff(username);
 }
@@ -1841,6 +1865,15 @@ async function updateAllSellers() {
     if (!confirm('Update all sellers now? This will fetch latest inventories and update added/sold releases.')) {
         return;
     }
+    
+    // Track bulk update
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'seller_scan', {
+            event_category: 'Seller Tracking',
+            event_label: `Update All (${trackedSellers.length} sellers)`
+        });
+    }
+    
     // Process sequentially to respect Discogs rate limits
     for (const seller of trackedSellers) {
         try {
