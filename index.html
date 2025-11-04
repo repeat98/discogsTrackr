@@ -304,6 +304,9 @@ body.dark-mode .sun-icon {
 .seller-actions button {
   padding: 2px 6px;
   font-size: 12px;
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
 }
 
 /* -----------------------
@@ -315,7 +318,7 @@ body.dark-mode .sun-icon {
 }
 
 .seller-progress-bar {
-  width: 100%;
+  width: 70%;
   height: 6px;
   border-radius: 4px;
   background: var(--bg-color);
@@ -328,7 +331,7 @@ body.dark-mode .sun-icon {
   top: 0;
   left: 0;
   height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent-color);
   transition: width 0.3s ease;
 }
 
@@ -797,6 +800,15 @@ body.dark-mode th[data-sort-key]:hover {
   box-shadow: 0 0 5px var(--input-focus);
 }
 
+/* Improve readability inside modals and inputs */
+body.dark-mode .form-control {
+  color: #ffffff !important;
+}
+body.dark-mode .form-control::placeholder {
+  color: #cfcfcf !important;
+  opacity: 0.8 !important;
+}
+
 .form-label {
   color: var(--text-color);
 }
@@ -907,13 +919,22 @@ footer a:hover {
             <div class="container MainContainer">
                 <div class="d-flex justify-content-between align-items-center w-100">
                     <a class="navbar-brand d-flex align-items-center" href="/">
-                        <span style="font-size: 24px; margin-right: 8px;">🎵</span>
-                        DISCOGS SELLER TRACKER
+                        <img
+                            src="img/gruuvs-logo.svg"
+                            alt="Discogs Trackr Logo"
+                            class="me-2"
+                            style="height: 24px; width: auto"
+                        />
+                        DISCOGS TRACKR
                         <span class="powered-by d-none d-md-inline fst-italic fw-light ms-1">
                             Track your favorite sellers
                         </span>
                     </a>
                     <div class="d-flex align-items-center">
+                        <div class="search-input-wrapper me-2 d-none d-md-block" style="max-width: 260px; position: relative;">
+                            <input type="text" id="navSearchInput" class="form-control form-control-sm" placeholder="Search..." style="padding-right: 28px;">
+                            <i class="bi bi-search" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); opacity: 0.6;"></i>
+                        </div>
                         <span class="settings-icon" onclick="openSettings()">
                             <i class="bi bi-gear"></i>
                         </span>
@@ -932,10 +953,6 @@ footer a:hover {
         <div class="filter-form-wrapper" id="filter-wrapper">
             <div class="container MainContainer">
                 <form id="filter-form" class="FilterContainer">
-                    <div class="filter-group">
-                        <label for="text_search" class="filter-label">Search</label>
-                        <input type="text" id="text_search" name="text_search" class="filter-input" placeholder="Search title, artist, label...">
-                    </div>
                     <div class="filter-group">
                         <label for="genre" class="filter-label">Genre</label>
                         <select id="genre" name="genre" class="filter-select">
@@ -1082,8 +1099,22 @@ footer a:hover {
 
     <footer class="text-center py-3">
         <small>
-            <a href="/" style="color: inherit; text-decoration: none">
+            <a href="discogs.html" style="color: inherit; text-decoration: none">
                 &copy; 2025 - Discogs Seller Tracker
+            </a>
+            <br />
+            <a
+                href="imprint.html"
+                style="color: inherit; text-decoration: none; opacity: 0.7"
+            >
+                Impressum
+            </a>
+            |
+            <a
+                href="privacy.html"
+                style="color: inherit; text-decoration: none; opacity: 0.7"
+            >
+                Datenschutzerklärung
             </a>
         </small>
     </footer>
@@ -1271,8 +1302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Filter change handlers
-    document.getElementById('text_search').addEventListener('input', applyFilters);
+    // Filter change handlers (search now only in navbar)
     document.getElementById('genre').addEventListener('change', applyFilters);
     document.getElementById('style').addEventListener('change', applyFilters);
     document.getElementById('artist').addEventListener('change', applyFilters);
@@ -1282,9 +1312,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('rating_count_range').addEventListener('input', debounce(applyFilters, 500));
     const priceRangeEl = document.getElementById('price_range');
     if (priceRangeEl) priceRangeEl.addEventListener('input', debounce(applyFilters, 500));
-    const textSearchEl = document.getElementById('text_search');
-    if (textSearchEl) textSearchEl.addEventListener('input', debounce(applyFilters, 250));
     
+    // Navbar search
+    const navSearch = document.getElementById('navSearchInput');
+    if (navSearch) {
+        navSearch.addEventListener('input', debounce(() => {
+            applyFilters();
+        }, 250));
+    }
+
     // Load tracked sellers and display
     await loadTrackedSellers();
     checkForStoredJob();
@@ -1585,8 +1621,8 @@ async function addSeller(username) {
     await saveSellerDataToDB(newSeller);
     updateSellerList();
     
-    // Start fetching
-    await fetchSellerData(username);
+    // Start fetching and processing automatically
+    await fetchAndProcessSeller(username);
 }
 
 async function removeSeller(username, event) {
@@ -1609,24 +1645,8 @@ async function refreshSeller(username, event) {
     const seller = trackedSellers.find(s => s.username === username);
     if (!seller) return;
     
-    // Check if inventory exists
-    const hasInventory = seller.inventory && seller.inventory.length > 0;
-    
-    let action;
-    if (hasInventory) {
-        action = await new Promise((resolve) => {
-            const choice = confirm(`Choose action for ${username}:\n\nOK = Process more releases (from cached inventory)\nCancel = Re-fetch inventory (use if seller added new items)`);
-            resolve(choice ? 'process' : 'refetch');
-        });
-    } else {
-        action = 'refetch';
-    }
-    
-    if (action === 'process') {
-        await processSellerReleases(username);
-    } else {
-        await fetchSellerInventory(username);
-    }
+    // Smart update: fetch inventory, compare, remove old releases, process only new ones
+    await updateSellerWithDiff(username);
 }
 
 async function updateAllSellers() {
@@ -1640,11 +1660,592 @@ async function updateAllSellers() {
     // Process sequentially to respect Discogs rate limits
     for (const seller of trackedSellers) {
         try {
-            await fetchSellerData(seller.username, true);
+            await updateSellerWithDiff(seller.username);
         } catch (e) {
             console.error('Failed to update seller', seller.username, e);
         }
     }
+}
+
+// Fetch inventory and automatically process all releases (for new sellers)
+async function fetchAndProcessSeller(username) {
+    const seller = trackedSellers.find(s => s.username === username);
+    if (!seller) return;
+    
+    const jobId = 'job_' + Date.now();
+    currentJobId = jobId;
+    
+    try {
+        localStorage.setItem('currentJobId', jobId);
+        localStorage.setItem('currentUsername', username);
+    } catch (e) {
+        console.warn('Could not store job metadata in localStorage:', e);
+    }
+    
+    const job = createJob(jobId, username);
+    seller.currentJob = job;
+    updateSellerList();
+    
+    try {
+        // Step 1: Fetch inventory
+        let allListings = [];
+        updateJob(jobId, { currentStep: 'Fetching inventory...' });
+        updateProgress(jobId);
+        
+        let page = 1;
+        const perPage = 100;
+        let consecutive403s = 0;
+        
+        while (true) {
+            try {
+                const inventory = await getSellerInventory(username, page, perPage);
+                const listings = inventory.listings || [];
+                
+                consecutive403s = 0;
+                
+                if (listings.length === 0) break;
+                
+                allListings.push(...listings);
+                
+                const totalPages = inventory.pagination?.pages || 1;
+                updateJob(jobId, {
+                    currentStep: `Fetching inventory: Page ${page} of ${totalPages}`,
+                    progress: page,
+                    total: totalPages
+                });
+                updateProgress(jobId);
+                
+                if (page >= totalPages) break;
+                page++;
+            } catch (error) {
+                console.error(`Error fetching inventory page ${page}:`, error);
+                if (error.message.includes('Forbidden (403)')) {
+                    if (page >= 100) {
+                        console.log(`✓ Reached Discogs pagination limit at page ${page}. Successfully fetched ${allListings.length} items.`);
+                        break;
+                    }
+                    
+                    consecutive403s++;
+                    if (consecutive403s >= 3) {
+                        updateJob(jobId, { 
+                            status: 'error', 
+                            currentStep: 'Discogs API error 403: Rate limit exceeded.' 
+                        });
+                        updateProgress(jobId);
+                        finishJob(jobId, username);
+                        return;
+                    }
+                    const waitTime = 60000 * Math.pow(2, consecutive403s - 1);
+                    updateJob(jobId, { 
+                        currentStep: `Rate limited (403), waiting ${waitTime / 1000}s before retry...` 
+                    });
+                    updateProgress(jobId);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    continue;
+                }
+                if (error.message.includes('Rate limited')) {
+                    updateJob(jobId, { currentStep: 'Rate limited (429), waiting 60s...' });
+                    updateProgress(jobId);
+                    await new Promise(resolve => setTimeout(resolve, 60000));
+                    continue;
+                }
+                if (allListings.length > 0) break;
+                throw error;
+            }
+        }
+        
+        if (allListings.length === 0) {
+            updateJob(jobId, {
+                status: 'error',
+                currentStep: 'No listings found for this seller'
+            });
+            updateProgress(jobId);
+            finishJob(jobId, username);
+            return;
+        }
+        
+        // Save inventory
+        seller.inventory = allListings;
+        await saveSellerDataToDB(seller);
+        
+        // Step 2: Automatically process all releases
+        updateJob(jobId, { currentStep: 'Processing releases...' });
+        updateProgress(jobId);
+        
+        await processAllReleasesFromInventory(jobId, username, allListings);
+        
+    } catch (error) {
+        console.error('Error in fetchAndProcessSeller:', error);
+        updateJob(jobId, {
+            status: 'error',
+            currentStep: `Error: ${error.message}`
+        });
+        updateProgress(jobId);
+        finishJob(jobId, username);
+    }
+}
+
+// Update seller with smart diff: fetch inventory, compare, remove old, process only new
+async function updateSellerWithDiff(username) {
+    const seller = trackedSellers.find(s => s.username === username);
+    if (!seller) return;
+    
+    const jobId = 'job_' + Date.now();
+    currentJobId = jobId;
+    
+    try {
+        localStorage.setItem('currentJobId', jobId);
+        localStorage.setItem('currentUsername', username);
+    } catch (e) {
+        console.warn('Could not store job metadata in localStorage:', e);
+    }
+    
+    const job = createJob(jobId, username);
+    seller.currentJob = job;
+    updateSellerList();
+    
+    try {
+        // Step 1: Fetch current inventory
+        let allListings = [];
+        updateJob(jobId, { currentStep: 'Fetching inventory...' });
+        updateProgress(jobId);
+        
+        let page = 1;
+        const perPage = 100;
+        let consecutive403s = 0;
+        
+        while (true) {
+            try {
+                const inventory = await getSellerInventory(username, page, perPage);
+                const listings = inventory.listings || [];
+                
+                consecutive403s = 0;
+                
+                if (listings.length === 0) break;
+                
+                allListings.push(...listings);
+                
+                const totalPages = inventory.pagination?.pages || 1;
+                updateJob(jobId, {
+                    currentStep: `Fetching inventory: Page ${page} of ${totalPages}`,
+                    progress: page,
+                    total: totalPages
+                });
+                updateProgress(jobId);
+                
+                if (page >= totalPages) break;
+                page++;
+            } catch (error) {
+                console.error(`Error fetching inventory page ${page}:`, error);
+                if (error.message.includes('Forbidden (403)')) {
+                    if (page >= 100) {
+                        console.log(`✓ Reached Discogs pagination limit at page ${page}.`);
+                        break;
+                    }
+                    
+                    consecutive403s++;
+                    if (consecutive403s >= 3) {
+                        updateJob(jobId, { 
+                            status: 'error', 
+                            currentStep: 'Discogs API error 403: Rate limit exceeded.' 
+                        });
+                        updateProgress(jobId);
+                        finishJob(jobId, username);
+                        return;
+                    }
+                    const waitTime = 60000 * Math.pow(2, consecutive403s - 1);
+                    updateJob(jobId, { 
+                        currentStep: `Rate limited (403), waiting ${waitTime / 1000}s...` 
+                    });
+                    updateProgress(jobId);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    continue;
+                }
+                if (error.message.includes('Rate limited')) {
+                    updateJob(jobId, { currentStep: 'Rate limited (429), waiting 60s...' });
+                    updateProgress(jobId);
+                    await new Promise(resolve => setTimeout(resolve, 60000));
+                    continue;
+                }
+                if (allListings.length > 0) break;
+                throw error;
+            }
+        }
+        
+        if (allListings.length === 0) {
+            updateJob(jobId, {
+                status: 'error',
+                currentStep: 'No listings found for this seller'
+            });
+            updateProgress(jobId);
+            finishJob(jobId, username);
+            return;
+        }
+        
+        // Step 2: Compare with existing releases
+        updateJob(jobId, { currentStep: 'Comparing inventory...' });
+        updateProgress(jobId);
+        
+        const uniqueReleases = {};
+        for (const listing of allListings) {
+            const release = listing.release;
+            if (!release || !release.id) continue;
+            
+            const price = parseFloat(listing.price?.value || 0);
+            if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
+                uniqueReleases[release.id] = {
+                    id: release.id,
+                    artist: release.artist || 'Unknown Artist',
+                    title: release.title || 'Unknown Title',
+                    price: price
+                };
+            }
+        }
+        
+        const currentReleaseIds = Object.keys(uniqueReleases).map(id => parseInt(id));
+        const existingReleases = seller.releases || [];
+        const existingIds = new Set(existingReleases.map(r => r.id));
+        
+        // Find releases to remove (no longer in inventory)
+        const removedIds = existingReleases.filter(r => !currentReleaseIds.includes(r.id)).map(r => r.id);
+        
+        // Find new releases to process
+        const newReleaseIds = currentReleaseIds.filter(id => !existingIds.has(id));
+        
+        // Step 3: Remove releases no longer in inventory
+        if (removedIds.length > 0) {
+            seller.releases = existingReleases.filter(r => !removedIds.includes(r.id));
+            console.log(`Removed ${removedIds.length} releases no longer in inventory`);
+            await saveSellerDataToDB(seller);
+            loadAllSellersData();
+        }
+        
+        // Update inventory
+        seller.inventory = allListings;
+        await saveSellerDataToDB(seller);
+        
+        // Step 4: Process only new releases
+        if (newReleaseIds.length === 0) {
+            updateJob(jobId, {
+                status: 'complete',
+                currentStep: `All up to date! (${removedIds.length} removed)`,
+                progress: 1,
+                total: 1
+            });
+            updateProgress(jobId);
+            
+            seller.lastUpdated = Date.now();
+            saveTrackedSellers();
+            finishJob(jobId, username);
+            return;
+        }
+        
+        updateJob(jobId, {
+            currentStep: `Processing ${newReleaseIds.length} new releases...`,
+            progress: 0,
+            total: newReleaseIds.length
+        });
+        updateProgress(jobId);
+        
+        // Process new releases
+        await processNewReleases(jobId, username, newReleaseIds, uniqueReleases);
+        
+    } catch (error) {
+        console.error('Error in updateSellerWithDiff:', error);
+        updateJob(jobId, {
+            status: 'error',
+            currentStep: `Error: ${error.message}`
+        });
+        updateProgress(jobId);
+        finishJob(jobId, username);
+    }
+}
+
+// Process all releases from inventory (for new sellers)
+async function processAllReleasesFromInventory(jobId, username, allListings) {
+    const seller = trackedSellers.find(s => s.username === username);
+    if (!seller) return;
+    
+    // Extract unique releases
+    const uniqueReleases = {};
+    for (const listing of allListings) {
+        const release = listing.release;
+        if (!release || !release.id) continue;
+        
+        const price = parseFloat(listing.price?.value || 0);
+        if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
+            uniqueReleases[release.id] = {
+                id: release.id,
+                artist: release.artist || 'Unknown Artist',
+                title: release.title || 'Unknown Title',
+                price: price
+            };
+        }
+    }
+    
+    const releaseIds = Object.keys(uniqueReleases);
+    
+    updateJob(jobId, {
+        total: releaseIds.length,
+        progress: 0,
+        currentStep: `Processing ${releaseIds.length} releases...`
+    });
+    updateProgress(jobId);
+    
+    const processedReleases = [];
+    let consecutiveErrors = 0;
+    
+    for (let i = 0; i < releaseIds.length; i++) {
+        const job = getJobFromStorage(jobId);
+        if (job && job.status === 'cancelled') {
+            console.log('Job cancelled');
+            return;
+        }
+        
+        const releaseId = releaseIds[i];
+        const basicInfo = uniqueReleases[releaseId];
+        
+        try {
+            const details = await getReleaseDetails(releaseId);
+            
+            const ratingData = details.community?.rating || {};
+            const avgRating = parseFloat(ratingData.average || 0);
+            const numRatings = parseInt(ratingData.count || 0);
+            const bayesianScore = bayesianRating(avgRating, numRatings);
+            
+            const haveCount = parseInt(details.community?.have || 0);
+            const wantCount = parseInt(details.community?.want || 0);
+            
+            const releaseData = {
+                id: parseInt(releaseId),
+                artist_title: `${basicInfo.artist} - ${basicInfo.title}`,
+                artist: details.artists?.[0]?.name || basicInfo.artist,
+                title: details.title || basicInfo.title,
+                label: details.labels?.[0]?.name || null,
+                year: details.year || null,
+                genres: JSON.stringify(details.genres || []),
+                styles: JSON.stringify(details.styles || []),
+                avg_rating: avgRating,
+                num_ratings: numRatings,
+                bayesian_score: bayesianScore,
+                price: basicInfo.price,
+                have_count: haveCount,
+                want_count: wantCount,
+                youtube_video_id: null,
+                video_urls: JSON.stringify(details.videos || []),
+                url: `https://www.discogs.com/release/${releaseId}`,
+                demand_coeff: computeRarityCoeff(haveCount, wantCount)
+            };
+            
+            processedReleases.push(releaseData);
+            
+            updateJob(jobId, {
+                progress: i + 1,
+                currentStep: `Processing: ${i + 1} of ${releaseIds.length} releases`
+            });
+            updateProgress(jobId);
+            
+            seller.releases = processedReleases;
+            
+            if ((i + 1) % 10 === 0 || i === releaseIds.length - 1) {
+                await saveSellerDataToDB(seller);
+                loadAllSellersData();
+            }
+            
+            consecutiveErrors = 0;
+            
+        } catch (error) {
+            console.error(`Error fetching details for release ${releaseId}:`, error);
+            
+            if (error.message.includes('Forbidden (403)')) {
+                consecutiveErrors++;
+                
+                seller.releases = processedReleases;
+                await saveSellerDataToDB(seller);
+                loadAllSellersData();
+                
+                if (consecutiveErrors >= 3) {
+                    updateJob(jobId, { 
+                        status: 'complete', 
+                        currentStep: `Processed ${processedReleases.length}/${releaseIds.length} releases (rate limited)` 
+                    });
+                    updateProgress(jobId);
+                    seller.lastUpdated = Date.now();
+                    saveTrackedSellers();
+                    finishJob(jobId, username);
+                    return;
+                }
+                
+                const waitMinutes = consecutiveErrors * 2;
+                const waitMs = waitMinutes * 60 * 1000;
+                
+                updateJob(jobId, { 
+                    currentStep: `Rate limited (403), waiting ${waitMinutes}min... (${i + 1}/${releaseIds.length})` 
+                });
+                updateProgress(jobId);
+                await new Promise(resolve => setTimeout(resolve, waitMs));
+                i--;
+                continue;
+            }
+            
+            if (error.message.includes('Rate limited')) {
+                consecutiveErrors++;
+                updateJob(jobId, { currentStep: `Rate limited (429), waiting 60s... (${i + 1}/${releaseIds.length})` });
+                updateProgress(jobId);
+                await new Promise(resolve => setTimeout(resolve, 60000));
+                i--;
+                continue;
+            }
+            
+            console.warn(`Skipping release ${releaseId} due to error:`, error.message);
+        }
+    }
+    
+    seller.lastUpdated = Date.now();
+    saveTrackedSellers();
+    await saveSellerDataToDB(seller);
+    updateSellerList();
+    
+    updateJob(jobId, {
+        status: 'complete',
+        currentStep: `Complete! Processed ${processedReleases.length} releases.`,
+        progress: releaseIds.length
+    });
+    updateProgress(jobId);
+    
+    loadAllSellersData();
+    finishJob(jobId, username);
+}
+
+// Process only new releases (for updates)
+async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases) {
+    const seller = trackedSellers.find(s => s.username === username);
+    if (!seller) return;
+    
+    const existingReleases = seller.releases || [];
+    const processedReleases = [...existingReleases];
+    let consecutiveErrors = 0;
+    
+    for (let i = 0; i < newReleaseIds.length; i++) {
+        const job = getJobFromStorage(jobId);
+        if (job && job.status === 'cancelled') {
+            console.log('Job cancelled');
+            return;
+        }
+        
+        const releaseId = newReleaseIds[i];
+        const basicInfo = uniqueReleases[releaseId];
+        
+        try {
+            const details = await getReleaseDetails(releaseId);
+            
+            const ratingData = details.community?.rating || {};
+            const avgRating = parseFloat(ratingData.average || 0);
+            const numRatings = parseInt(ratingData.count || 0);
+            const bayesianScore = bayesianRating(avgRating, numRatings);
+            
+            const haveCount = parseInt(details.community?.have || 0);
+            const wantCount = parseInt(details.community?.want || 0);
+            
+            const releaseData = {
+                id: parseInt(releaseId),
+                artist_title: `${basicInfo.artist} - ${basicInfo.title}`,
+                artist: details.artists?.[0]?.name || basicInfo.artist,
+                title: details.title || basicInfo.title,
+                label: details.labels?.[0]?.name || null,
+                year: details.year || null,
+                genres: JSON.stringify(details.genres || []),
+                styles: JSON.stringify(details.styles || []),
+                avg_rating: avgRating,
+                num_ratings: numRatings,
+                bayesian_score: bayesianScore,
+                price: basicInfo.price,
+                have_count: haveCount,
+                want_count: wantCount,
+                youtube_video_id: null,
+                video_urls: JSON.stringify(details.videos || []),
+                url: `https://www.discogs.com/release/${releaseId}`,
+                demand_coeff: computeRarityCoeff(haveCount, wantCount)
+            };
+            
+            processedReleases.push(releaseData);
+            
+            updateJob(jobId, {
+                progress: i + 1,
+                currentStep: `Processing: ${i + 1} of ${newReleaseIds.length} new releases`
+            });
+            updateProgress(jobId);
+            
+            seller.releases = processedReleases;
+            
+            if ((i + 1) % 10 === 0 || i === newReleaseIds.length - 1) {
+                await saveSellerDataToDB(seller);
+                loadAllSellersData();
+            }
+            
+            consecutiveErrors = 0;
+            
+        } catch (error) {
+            console.error(`Error fetching details for release ${releaseId}:`, error);
+            
+            if (error.message.includes('Forbidden (403)')) {
+                consecutiveErrors++;
+                
+                seller.releases = processedReleases;
+                await saveSellerDataToDB(seller);
+                loadAllSellersData();
+                
+                if (consecutiveErrors >= 3) {
+                    updateJob(jobId, { 
+                        status: 'complete', 
+                        currentStep: `Processed ${i} new releases (rate limited)` 
+                    });
+                    updateProgress(jobId);
+                    seller.lastUpdated = Date.now();
+                    saveTrackedSellers();
+                    finishJob(jobId, username);
+                    return;
+                }
+                
+                const waitMinutes = consecutiveErrors * 2;
+                const waitMs = waitMinutes * 60 * 1000;
+                
+                updateJob(jobId, { 
+                    currentStep: `Rate limited (403), waiting ${waitMinutes}min... (${i + 1}/${newReleaseIds.length})` 
+                });
+                updateProgress(jobId);
+                await new Promise(resolve => setTimeout(resolve, waitMs));
+                i--;
+                continue;
+            }
+            
+            if (error.message.includes('Rate limited')) {
+                consecutiveErrors++;
+                updateJob(jobId, { currentStep: `Rate limited (429), waiting 60s... (${i + 1}/${newReleaseIds.length})` });
+                updateProgress(jobId);
+                await new Promise(resolve => setTimeout(resolve, 60000));
+                i--;
+                continue;
+            }
+            
+            console.warn(`Skipping release ${releaseId} due to error:`, error.message);
+        }
+    }
+    
+    seller.lastUpdated = Date.now();
+    saveTrackedSellers();
+    await saveSellerDataToDB(seller);
+    updateSellerList();
+    
+    updateJob(jobId, {
+        status: 'complete',
+        currentStep: `Complete! Processed ${newReleaseIds.length} new releases.`,
+        progress: newReleaseIds.length
+    });
+    updateProgress(jobId);
+    
+    loadAllSellersData();
+    finishJob(jobId, username);
 }
 
 function loadAllSellersData() {
@@ -2486,7 +3087,7 @@ function populateFilterOptions(releases) {
 }
 
 function applyFilters(preservePage = null) {
-    const q = (document.getElementById('text_search')?.value || '').toLowerCase().trim();
+    const q = (document.getElementById('navSearchInput')?.value || '').toLowerCase().trim();
     const selectedGenre = document.getElementById('genre').value;
     const selectedStyle = document.getElementById('style').value;
     const selectedArtist = document.getElementById('artist').value;
