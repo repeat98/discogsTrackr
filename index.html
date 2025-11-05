@@ -3464,6 +3464,26 @@ async function fetchUserWantlistIds() {
     }
 }
 
+// Fetch ALL collection releases across pages (returns array of entries with basic_information)
+async function fetchAllCollectionReleases(username) {
+    const firstPageUrl = `https://api.discogs.com/users/${username}/collection/folders/0/releases?per_page=100&page=1`;
+    const firstPage = await makeAuthenticatedRequest(firstPageUrl);
+    const releases = [...(firstPage.releases || [])];
+    const totalPages = firstPage.pagination?.pages || 1;
+    if (totalPages > 1) {
+        const pagePromises = [];
+        for (let page = 2; page <= totalPages; page++) {
+            const pageUrl = `https://api.discogs.com/users/${username}/collection/folders/0/releases?per_page=100&page=${page}`;
+            pagePromises.push(makeAuthenticatedRequest(pageUrl));
+        }
+        const pages = await Promise.all(pagePromises);
+        pages.forEach(p => {
+            if (p.releases) releases.push(...p.releases);
+        });
+    }
+    return releases;
+}
+
 // Show user collection
 async function showUserCollection() {
     if (!oauthUser) {
@@ -3483,17 +3503,15 @@ async function showUserCollection() {
     
     try {
         const username = oauthUser.username;
-        const collectionUrl = `https://api.discogs.com/users/${username}/collection/folders/0/releases?per_page=100`;
+        const releasesAll = await fetchAllCollectionReleases(username);
         
-        const data = await makeAuthenticatedRequest(collectionUrl);
-        
-        if (!data.releases || data.releases.length === 0) {
+        if (!releasesAll || releasesAll.length === 0) {
             tbody.innerHTML = '<tr><td colspan="15" class="text-center py-5"><div class="alert alert-info">Your collection is empty.</div></td></tr>';
             return;
         }
         
-        // Get current release IDs
-        const currentCollectionIds = new Set(data.releases.map(item => item.basic_information.id));
+        // Get current release IDs (ALL pages)
+        const currentCollectionIds = new Set(releasesAll.map(item => item.basic_information.id));
         
         // Determine what changed
         const addedIds = [...currentCollectionIds].filter(id => !lastCollectionIds.has(id));
@@ -3518,7 +3536,7 @@ async function showUserCollection() {
                 // Enrich only new items
                 for (let i = 0; i < addedIds.length; i++) {
                     const releaseId = addedIds[i];
-                    const item = data.releases.find(r => r.basic_information.id === releaseId);
+                    const item = releasesAll.find(r => r.basic_information.id === releaseId);
                     const release = item.basic_information;
                     
                     try {
@@ -3584,7 +3602,7 @@ async function showUserCollection() {
             console.log('Performing full collection enrichment');
             
             // Fetch full release data for each item to get ratings, have/want, videos
-            const totalItems = data.releases.length;
+            const totalItems = releasesAll.length;
             tbody.innerHTML = `<tr><td colspan="15" class="text-center py-5">
                 <div class="spinner-border" role="status"></div>
                 <p class="mt-2 mb-1">Enriching collection data...</p>
@@ -3592,8 +3610,8 @@ async function showUserCollection() {
             </td></tr>`;
             
             const collectionReleases = [];
-            for (let i = 0; i < data.releases.length; i++) {
-                const item = data.releases[i];
+            for (let i = 0; i < releasesAll.length; i++) {
+                const item = releasesAll[i];
                 const release = item.basic_information;
             
             try {
