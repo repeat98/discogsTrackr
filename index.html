@@ -1255,7 +1255,7 @@ footer a:hover {
         <nav class="navbar navbar-expand-lg navbar-dark">
             <div class="container MainContainer">
                 <div class="d-flex justify-content-between align-items-center w-100">
-                    <a class="navbar-brand d-flex align-items-center" href="/">
+                    <a class="navbar-brand d-flex align-items-center" href="./">
                         <img
                             src="img/gruuvs-logo.svg"
                             alt="Discogs Trackr Logo"
@@ -3791,7 +3791,7 @@ async function toggleWantlist(releaseId, buttonElement) {
                     }
                     
                     if (buttonElement) {
-                        buttonElement.innerHTML = '<i class="bi bi-heart"></i>';
+                        buttonElement.innerHTML = '<i class="bi bi-heart" style="color: #fff;"></i>';
                         buttonElement.onclick = () => toggleWantlist(releaseId, buttonElement);
                     }
                     
@@ -5407,11 +5407,11 @@ function renderRow(row, release) {
             `;
         }
         
-        // Actions column only for sellers view (before videos)
-        if (currentView === 'sellers') {
+        // Actions column for sellers and wantlist views (before videos)
+        if (currentView === 'sellers' || currentView === 'wantlist') {
             const heartIcon = release.inWantlist 
                 ? '<i class="bi bi-heart-fill" style="color: var(--accent-color);"></i>'
-                : '<i class="bi bi-heart"></i>';
+                : '<i class="bi bi-heart" style="color: #fff;"></i>';
             const titleText = release.inWantlist ? 'Remove from Wantlist' : 'Add to Wantlist';
             
             row.innerHTML += `
@@ -5434,8 +5434,8 @@ function setupTableHeaders() {
     
     // Define which columns to show based on current view
     let columns;
-    if (currentView === 'collection' || currentView === 'wantlist') {
-        // Collection/Wantlist columns (no seller, no price, no actions)
+    if (currentView === 'collection') {
+        // Collection columns (no seller, no price, no actions)
         columns = [
             { key: 'title', label: 'Title' },
             { key: 'artist', label: 'Artist' },
@@ -5447,6 +5447,22 @@ function setupTableHeaders() {
             { key: 'num_ratings', label: '# Ratings' },
             { key: 'have_count', label: 'Have' },
             { key: 'want_count', label: 'Want' },
+            { key: null, label: 'Videos', nosort: true }
+        ];
+    } else if (currentView === 'wantlist') {
+        // Wantlist columns (show actions to remove)
+        columns = [
+            { key: 'title', label: 'Title' },
+            { key: 'artist', label: 'Artist' },
+            { key: 'label', label: 'Label' },
+            { key: 'year', label: 'Year' },
+            { key: null, label: 'Genre / Style', nosort: true },
+            { key: 'bayesian_score', label: 'Rating' },
+            { key: 'demand_coeff', label: 'Rarity' },
+            { key: 'num_ratings', label: '# Ratings' },
+            { key: 'have_count', label: 'Have' },
+            { key: 'want_count', label: 'Want' },
+            { key: null, label: 'Actions', nosort: true },
             { key: null, label: 'Videos', nosort: true }
         ];
     } else {
