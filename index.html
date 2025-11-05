@@ -2318,7 +2318,11 @@ function toggleSeller(username) {
     }
     
     updateSellerList();
-    loadAllSellersData();
+    
+    // Only reload seller data if we're in the sellers view
+    if (currentView === 'sellers') {
+        loadAllSellersData();
+    }
 }
 
 function openAddSellerModal() {
@@ -2415,7 +2419,11 @@ async function removeSeller(username, event) {
     await deleteSellerDataFromDB(username);
     saveTrackedSellers();
     updateSellerList();
-    loadAllSellersData();
+    
+    // Only reload seller data if we're in the sellers view
+    if (currentView === 'sellers') {
+        loadAllSellersData();
+    }
 }
 
 async function refreshSeller(username, event) {
@@ -2715,7 +2723,9 @@ async function updateSellerWithDiff(username) {
             seller.releases = existingReleases.filter(r => !removedIds.includes(r.id));
             console.log(`Removed ${removedIds.length} releases no longer in inventory`);
             await saveSellerDataToDB(seller);
-            loadAllSellersData();
+            if (currentView === 'sellers') {
+                loadAllSellersData();
+            }
         }
         
         // Update inventory
@@ -2850,7 +2860,9 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
             
             if ((i + 1) % 10 === 0 || i === releaseIds.length - 1) {
                 await saveSellerDataToDB(seller);
-                loadAllSellersData();
+                if (currentView === 'sellers') {
+                    loadAllSellersData();
+                }
             }
             
             consecutiveErrors = 0;
@@ -2863,7 +2875,9 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
                 
                 seller.releases = processedReleases;
                 await saveSellerDataToDB(seller);
-                loadAllSellersData();
+                if (currentView === 'sellers') {
+                    loadAllSellersData();
+                }
                 
                 if (consecutiveErrors >= 3) {
                     updateJob(jobId, { 
@@ -2914,7 +2928,9 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
     });
     updateProgress(jobId);
     
-    loadAllSellersData();
+    if (currentView === 'sellers') {
+        loadAllSellersData();
+    }
     finishJob(jobId, username);
 }
 
@@ -2982,7 +2998,9 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
             
             if ((i + 1) % 10 === 0 || i === newReleaseIds.length - 1) {
                 await saveSellerDataToDB(seller);
-                loadAllSellersData();
+                if (currentView === 'sellers') {
+                    loadAllSellersData();
+                }
             }
             
             consecutiveErrors = 0;
@@ -2995,7 +3013,9 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
                 
                 seller.releases = processedReleases;
                 await saveSellerDataToDB(seller);
-                loadAllSellersData();
+                if (currentView === 'sellers') {
+                    loadAllSellersData();
+                }
                 
                 if (consecutiveErrors >= 3) {
                     updateJob(jobId, { 
@@ -3046,7 +3066,9 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
     });
     updateProgress(jobId);
     
-    loadAllSellersData();
+    if (currentView === 'sellers') {
+        loadAllSellersData();
+    }
     finishJob(jobId, username);
 }
 
@@ -4316,7 +4338,9 @@ async function processReleasesFromInventory(jobId, username) {
             saveTrackedSellers();
             await saveSellerDataToDB(seller);
             updateSellerList();
-            loadAllSellersData();
+            if (currentView === 'sellers') {
+                loadAllSellersData();
+            }
             finishJob(jobId, username);
             return;
         }
@@ -4390,7 +4414,9 @@ async function processReleasesFromInventory(jobId, username) {
                 // Update display every 10 releases
                 if ((i + 1) % 10 === 0 || i === newReleaseIds.length - 1) {
                     await saveSellerDataToDB(seller);
-                    loadAllSellersData();
+                    if (currentView === 'sellers') {
+                        loadAllSellersData();
+                    }
                 }
                 
             } catch (error) {
@@ -4402,7 +4428,9 @@ async function processReleasesFromInventory(jobId, username) {
                     // Save progress after every batch
                     seller.releases = processedReleases;
                     await saveSellerDataToDB(seller);
-                    loadAllSellersData();
+                    if (currentView === 'sellers') {
+                        loadAllSellersData();
+                    }
                     
                     // Check if we're at a batch boundary (every 50 releases)
                     const isAtBatchBoundary = (i + 1) % BATCH_SIZE === 0 || i === 0;
@@ -4467,7 +4495,9 @@ async function processReleasesFromInventory(jobId, username) {
         });
         updateProgress(jobId);
         
-        loadAllSellersData();
+        if (currentView === 'sellers') {
+            loadAllSellersData();
+        }
         finishJob(jobId, username);
         
     } catch (error) {
