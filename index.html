@@ -206,6 +206,49 @@ body.dark-mode .sun-icon {
   display: inline;
 }
 
+/* Condition badge */
+.badge-condition {
+  background-color: var(--accent-color);
+  color: #000;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  display: inline-block;
+  z-index: 1;
+}
+
+.title-cell {
+  position: relative;
+  min-height: 22px;
+  padding-right: 40px;
+}
+
+.title-cell .badge-condition {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+/* Price badge placement */
+.price-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price-cell .badge-condition {
+  position: static;
+}
+
+.price-cell .price-text {
+  font-weight: 600;
+}
+
+.title-cell .release-link {
+  font-weight: 600;
+}
+
 /* Profile Icon */
 .profile-icon {
   cursor: pointer;
@@ -2360,12 +2403,14 @@ async function updateSellerWithDiff(username) {
             if (!release || !release.id) continue;
             
             const price = parseFloat(listing.price?.value || 0);
+            const cond = listing.condition || listing.media_condition || listing.item_condition || listing.condition_grade || '';
             if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
                 uniqueReleases[release.id] = {
                     id: release.id,
                     artist: release.artist || 'Unknown Artist',
                     title: release.title || 'Unknown Title',
-                    price: price
+                    price: price,
+                    condition: cond
                 };
             }
         }
@@ -2441,12 +2486,14 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
         if (!release || !release.id) continue;
         
         const price = parseFloat(listing.price?.value || 0);
+        const cond = listing.condition || listing.media_condition || listing.item_condition || listing.condition_grade || '';
         if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
             uniqueReleases[release.id] = {
                 id: release.id,
                 artist: release.artist || 'Unknown Artist',
                 title: release.title || 'Unknown Title',
-                price: price
+                price: price,
+                condition: cond
             };
         }
     }
@@ -2497,6 +2544,7 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
                 num_ratings: numRatings,
                 bayesian_score: bayesianScore,
                 price: basicInfo.price,
+                condition: basicInfo.condition || '',
                 have_count: haveCount,
                 want_count: wantCount,
                 youtube_video_id: null,
@@ -2628,6 +2676,7 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
                 num_ratings: numRatings,
                 bayesian_score: bayesianScore,
                 price: basicInfo.price,
+                condition: basicInfo.condition || '',
                 have_count: haveCount,
                 want_count: wantCount,
                 youtube_video_id: null,
@@ -3247,6 +3296,7 @@ async function processReleasesFromInventory(jobId, username) {
                     num_ratings: numRatings,
                     bayesian_score: bayesianScore,
                     price: basicInfo.price,
+                    condition: basicInfo.condition || '',
                     have_count: haveCount,
                     want_count: wantCount,
                     youtube_video_id: null,
@@ -3813,6 +3863,78 @@ function renderTable() {
 }
 
 // Function to update a row only if data has changed, preserving iframes
+function formatConditionAbbrev(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    const s = raw.trim();
+    // Prefer abbreviation inside parentheses if available
+    const paren = s.match(/\(([^)]+)\)/);
+    if (paren && /\b(M|NM|VG\+?|G\+?|F|P)\b/i.test(paren[1])) {
+        const token = paren[1].match(/(M|NM|VG\+?|G\+?|F|P)/i)[1].toUpperCase();
+        // Normalize M- to NM
+        return token === 'M-' ? 'NM' : token;
+    }
+    // Map common verbose strings
+    const map = [
+        [/^(mint)\b/i, 'M'],
+        [/(near\s*mint|nm|m-)\b/i, 'NM'],
+        [/vg\s*\+|very\s*good\s*\+/i, 'VG+'],
+        [/\bvg\b|very\s*good(?!\s*\+)/i, 'VG'],
+        [/g\s*\+|good\s*\+/i, 'G+'],
+        [/\bg\b|\bgood\b/i, 'G'],
+        [/\bfair\b|\bf\b/i, 'F'],
+        [/\bpoor\b|\bp\b/i, 'P']
+    ];
+    for (const [re, abbr] of map) {
+        if (re.test(s)) return abbr;
+    }
+    return s.toUpperCase();
+}
+
+function getReleaseCondition(release) {
+    const direct = (
+        release?.media_condition ||
+        release?.condition ||
+        release?.item_condition ||
+        release?.condition_grade ||
+        ''
+    );
+    if (direct && typeof direct === 'string') return direct;
+    // Fallback: find any property containing 'condition'
+    try {
+        for (const key of Object.keys(release || {})) {
+            if (key.toLowerCase().includes('condition')) {
+                const val = release[key];
+                if (typeof val === 'string' && val.trim()) {
+                    return val;
+                }
+            }
+        }
+    } catch (e) {}
+    return '';
+}
+
+function formatPrice(value) {
+    if (value == null) return '-';
+    // If release.price is a number
+    if (typeof value === 'number') {
+        return '$' + value.toFixed(2);
+    }
+    // If object with value/currency
+    if (typeof value === 'object') {
+        if (typeof value.formatted === 'string' && value.formatted.trim()) {
+            return value.formatted;
+        }
+        if (typeof value.value === 'number') {
+            const curr = value.currency || value.curr_abbr || '';
+            if (curr) return `${curr === 'EUR' ? '€' : curr === 'USD' ? '$' : curr} ${value.value.toFixed(2)}`;
+            return value.value.toFixed(2);
+        }
+    }
+    // Fallback: string
+    if (typeof value === 'string' && value.trim()) return value;
+    return '-';
+}
+
 function updateRowIfNeeded(row, release) {
     // Store the release data as a JSON string for comparison
     const newDataHash = JSON.stringify({
@@ -3829,7 +3951,11 @@ function updateRowIfNeeded(row, release) {
         have_count: release.have_count,
         want_count: release.want_count,
         price: release.price,
-        video_urls: release.video_urls
+        video_urls: release.video_urls,
+        media_condition: release.media_condition,
+        condition: release.condition,
+        item_condition: release.item_condition,
+        condition_grade: release.condition_grade
     });
     
     const oldDataHash = row.getAttribute('data-release-hash');
@@ -3880,9 +4006,13 @@ function updateRowIfNeeded(row, release) {
         } catch (e) {}
         
         // Update cells by index (based on desktop column order)
-        // 0: Title
+        // 0: Title only (badge removed)
         if (cells[0]) {
-            cells[0].innerHTML = `<a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a>`;
+            cells[0].innerHTML = `
+                <div class="title-cell">
+                    <a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a>
+                </div>
+            `;
         }
         // 1: Artist
         if (cells[1]) {
@@ -3945,9 +4075,16 @@ function updateRowIfNeeded(row, release) {
         if (cells[10]) {
             cells[10].textContent = release.want_count || '0';
         }
-        // 11: Price
+        // 11: Price with condition badge
         if (cells[11]) {
-            cells[11].textContent = release.price ? '$' + release.price.toFixed(2) : '-';
+            const priceConditionAbbr = formatConditionAbbrev(getReleaseCondition(release));
+            const priceText = formatPrice(release.price);
+            cells[11].innerHTML = `
+                <div class="price-cell" style="display:inline-block; position:relative; min-width: 64px;">
+                    <span class="price-text">${priceText}</span>
+                    ${priceConditionAbbr ? `<span class=\"badge-condition\">${priceConditionAbbr}</span>` : ''}
+                </div>
+            `;
         }
         // 12: Video - only update if video URLs have changed
         if (cells[12]) {
@@ -4243,12 +4380,17 @@ function renderRow(row, release) {
         const ratingText = release.avg_rating ? `${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}` : '';
         
         row.innerHTML = `
-            <td><a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a></td>
+            <td>
+                <div class="title-cell">
+                    <a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a>
+                </div>
+            </td>
             <td>${escapeHtml(release.artist || '-')}</td>
             <td>${escapeHtml(release.label || '-')}</td>
             <td class="text-center">${release.year || '-'}</td>
         `;
         row.appendChild(genreStyleCell);
+        const priceConditionAbbr = formatConditionAbbrev(getReleaseCondition(release));
         row.innerHTML += `
             <td class="text-center">${ratingStars} ${ratingText}</td>
             <td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
@@ -4256,7 +4398,10 @@ function renderRow(row, release) {
             <td class="text-center">${release.num_ratings || '0'}</td>
             <td class="text-center">${release.have_count || '0'}</td>
             <td class="text-center">${release.want_count || '0'}</td>
-            <td class="text-center">${release.price ? '$' + release.price.toFixed(2) : '-'}</td>
+            <td class="text-center"><div class="price-cell" style="display:inline-block; position:relative; min-width: 64px;">
+                <span class="price-text">${formatPrice(release.price)}</span>
+                ${priceConditionAbbr ? `<span class="badge-condition">${priceConditionAbbr}</span>` : ''}
+            </div></td>
             <td class="text-center">${videoCell}</td>
         `;
     }
