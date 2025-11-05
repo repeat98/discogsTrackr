@@ -3562,6 +3562,9 @@ function renderTable() {
                 row = document.createElement('tr');
                 row.setAttribute('data-release-id', idStr);
                 renderRow(row, release);
+            } else {
+                // Update existing row only if data has changed
+                updateRowIfNeeded(row, release);
             }
             tbody.appendChild(row);
         });
@@ -3571,6 +3574,11 @@ function renderTable() {
         existingRows.forEach((row, rid) => {
             if (currentPageIds.has(rid)) {
                 row.style.display = '';
+                // Update the row data if it changed, but preserve iframes
+                const release = pageData.find(r => String(r.id) === rid);
+                if (release) {
+                    updateRowIfNeeded(row, release);
+                }
             } else {
                 row.style.display = 'none';
             }
@@ -3590,7 +3598,254 @@ function renderTable() {
     document.getElementById('resultsSection').style.display = 'block';
 }
 
+// Function to update a row only if data has changed, preserving iframes
+function updateRowIfNeeded(row, release) {
+    // Store the release data as a JSON string for comparison
+    const newDataHash = JSON.stringify({
+        title: release.title,
+        artist: release.artist,
+        label: release.label,
+        year: release.year,
+        genres: release.genres,
+        styles: release.styles,
+        avg_rating: release.avg_rating,
+        num_ratings: release.num_ratings,
+        seller_username: release.seller_username,
+        demand_coeff: release.demand_coeff,
+        have_count: release.have_count,
+        want_count: release.want_count,
+        price: release.price,
+        video_urls: release.video_urls
+    });
+    
+    const oldDataHash = row.getAttribute('data-release-hash');
+    
+    // If data hasn't changed, skip update
+    if (oldDataHash === newDataHash) {
+        return;
+    }
+    
+    // Store the new hash
+    row.setAttribute('data-release-hash', newDataHash);
+    
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+        // For mobile, we need to update the entire cell content except for the iframe
+        // Get existing iframe if it exists
+        const existingIframe = row.querySelector('iframe');
+        const existingPreview = row.querySelector('.mobile-preview');
+        
+        // Re-render the row
+        row.innerHTML = '';
+        renderRow(row, release);
+        
+        // If there was an iframe and it's the same video, restore it to avoid reload
+        if (existingIframe && existingPreview) {
+            const newPreview = row.querySelector('.mobile-preview');
+            if (newPreview && newPreview.querySelector('iframe')) {
+                const newIframe = newPreview.querySelector('iframe');
+                // Compare src without query parameters
+                const oldSrc = existingIframe.src.split('?')[0];
+                const newSrc = newIframe.src.split('?')[0];
+                if (oldSrc === newSrc) {
+                    // Same video, restore the old iframe to preserve state
+                    newIframe.replaceWith(existingIframe);
+                }
+            }
+        }
+    } else {
+        // For desktop, update individual cells without touching the video cell
+        const cells = row.querySelectorAll('td');
+        
+        let genres = [];
+        let styles = [];
+        try {
+            if (release.genres) genres = JSON.parse(release.genres);
+            if (release.styles) styles = JSON.parse(release.styles);
+        } catch (e) {}
+        
+        // Update cells by index (based on desktop column order)
+        // 0: Title
+        if (cells[0]) {
+            cells[0].innerHTML = `<a href="${release.url}" target="_blank" class="release-link">${escapeHtml(release.title || release.artist_title)}</a>`;
+        }
+        // 1: Artist
+        if (cells[1]) {
+            cells[1].textContent = release.artist || '-';
+        }
+        // 2: Label
+        if (cells[2]) {
+            cells[2].textContent = release.label || '-';
+        }
+        // 3: Year
+        if (cells[3]) {
+            cells[3].textContent = release.year || '-';
+        }
+        // 4: Genre/Style
+        if (cells[4]) {
+            cells[4].innerHTML = '';
+            if (genres.length > 0) {
+                genres.forEach(g => {
+                    const span = document.createElement('span');
+                    span.className = 'badge-genre';
+                    span.textContent = g;
+                    cells[4].appendChild(span);
+                });
+            }
+            if (styles.length > 0) {
+                styles.forEach(s => {
+                    const span = document.createElement('span');
+                    span.className = 'badge-style';
+                    span.textContent = s;
+                    cells[4].appendChild(span);
+                });
+            }
+            if (genres.length === 0 && styles.length === 0) {
+                cells[4].textContent = '-';
+            }
+        }
+        // 5: Rating
+        if (cells[5]) {
+            const ratingStars = release.avg_rating ? generateStars(release.avg_rating) : '<div class="text-muted">No rating</div>';
+            const ratingText = release.avg_rating ? `${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}` : '';
+            cells[5].innerHTML = `${ratingStars} ${ratingText}`;
+        }
+        // 6: Seller
+        if (cells[6]) {
+            cells[6].innerHTML = `<span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span>`;
+        }
+        // 7: Rarity
+        if (cells[7]) {
+            cells[7].textContent = release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-';
+        }
+        // 8: # Ratings
+        if (cells[8]) {
+            cells[8].textContent = release.num_ratings || '0';
+        }
+        // 9: Have
+        if (cells[9]) {
+            cells[9].textContent = release.have_count || '0';
+        }
+        // 10: Want
+        if (cells[10]) {
+            cells[10].textContent = release.want_count || '0';
+        }
+        // 11: Price
+        if (cells[11]) {
+            cells[11].textContent = release.price ? '$' + release.price.toFixed(2) : '-';
+        }
+        // 12: Video - only update if video URLs have changed
+        if (cells[12]) {
+            const existingCarousel = cells[12].querySelector('.video-carousel');
+            const existingIframe = existingCarousel ? existingCarousel.querySelector('iframe') : null;
+            
+            let rawVideoLinks = [];
+            if (release.video_urls) {
+                try {
+                    rawVideoLinks = JSON.parse(release.video_urls);
+                } catch (e) {}
+            }
+            const videoLinks = sanitizeVideoLinks(rawVideoLinks);
+            
+            // Check if video URLs are the same
+            let shouldUpdateVideo = true;
+            if (existingCarousel) {
+                const carouselVideosAttr = existingCarousel.querySelector('.video-nav-btn')?.getAttribute('data-videos');
+                if (carouselVideosAttr) {
+                    try {
+                        const existingVideos = JSON.parse(decodeURIComponent(carouselVideosAttr));
+                        if (JSON.stringify(existingVideos) === JSON.stringify(videoLinks)) {
+                            shouldUpdateVideo = false;
+                        }
+                    } catch (e) {}
+                }
+            }
+            
+            // Only update video cell if videos have changed
+            if (shouldUpdateVideo) {
+                let videoCell = '';
+                if (videoLinks.length > 0) {
+                    const firstVideo = videoLinks[0];
+                    const firstVideoId = extractYouTubeID(firstVideo.url);
+                    
+                    if (firstVideoId) {
+                        const videosDataAttr = encodeURIComponent(JSON.stringify(videoLinks));
+                        videoCell = `
+                            <div class="video-carousel" id="carousel-${release.id}" data-release-id="${release.id}">
+                                <iframe id="youtube-player-${release.id}" class="table-iframe" loading="lazy" 
+                                    title="YouTube video player" aria-label="YouTube video player" 
+                                    src="https://www.youtube.com/embed/${firstVideoId}?enablejsapi=1&rel=0&modestbranding=1" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen 
+                                    style="width: 220px; height: 124px;">
+                                </iframe>
+                        `;
+                        
+                        if (videoLinks.length > 1) {
+                            videoCell += `
+                                <div class="video-nav d-flex justify-content-between align-items-center mt-1">
+                                    <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="-1" data-videos="${videosDataAttr}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <span class="video-counter" id="counter-${release.id}">1 / ${videoLinks.length}</span>
+                                    <button class="btn btn-sm btn-outline-secondary video-nav-btn" data-release-id="${release.id}" data-direction="1" data-videos="${videosDataAttr}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </div>
+                            `;
+                        }
+                        videoCell += '</div>';
+                    } else {
+                        const linksToShow = videoLinks.slice(0, 3);
+                        if (linksToShow.length > 0) {
+                            videoCell = '<div class="video-links">';
+                            linksToShow.forEach((video, idx) => {
+                                videoCell += `<a href="${escapeHtml(video.url)}" target="_blank" class="btn btn-sm btn-outline-primary mb-1" style="display: block; font-size: 0.75rem;">
+                                    <i class="bi bi-play-circle"></i> ${escapeHtml(video.title || 'Video ' + (idx + 1))}
+                                </a>`;
+                            });
+                            videoCell += '</div>';
+                        }
+                    }
+                }
+                
+                if (!videoCell) {
+                    videoCell = `
+                        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent((release.artist || '') + ' ' + (release.title || release.artist_title || ''))}" 
+                           target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-search"></i> Search
+                        </a>
+                    `;
+                }
+                
+                cells[12].innerHTML = videoCell;
+            }
+        }
+    }
+}
+
 function renderRow(row, release) {
+    // Store the release data hash for future comparisons
+    const dataHash = JSON.stringify({
+        title: release.title,
+        artist: release.artist,
+        label: release.label,
+        year: release.year,
+        genres: release.genres,
+        styles: release.styles,
+        avg_rating: release.avg_rating,
+        num_ratings: release.num_ratings,
+        seller_username: release.seller_username,
+        demand_coeff: release.demand_coeff,
+        have_count: release.have_count,
+        want_count: release.want_count,
+        price: release.price,
+        video_urls: release.video_urls
+    });
+    row.setAttribute('data-release-hash', dataHash);
+    
     const isMobile = window.innerWidth <= 768;
     
     let genres = [];
