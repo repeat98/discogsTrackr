@@ -878,6 +878,93 @@ body.dark-mode th[data-sort-key]:hover {
   font-weight: 600;
 }
 
+/* Heart button styling */
+.wantlist-heart-btn {
+  border: none !important;
+  background: transparent !important;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.wantlist-heart-btn:hover {
+  background: transparent !important;
+  opacity: 0.7;
+}
+
+.wantlist-heart-btn:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* User profile dropdown */
+.user-profile-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--accent-color);
+}
+
+.user-dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 8px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  z-index: 1000;
+  padding: 8px 0;
+}
+
+.user-dropdown-menu.show {
+  display: block;
+}
+
+.user-dropdown-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  color: var(--text-color);
+  transition: background-color 0.2s;
+}
+
+.user-dropdown-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.dark-mode .user-dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.user-dropdown-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 4px 0;
+}
+
+.oauth-login-btn {
+  background-color: var(--btn-primary-bg);
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.oauth-login-btn:hover {
+  background-color: var(--btn-primary-hover-bg);
+}
+
 /* Modal styling */
 .modal-content {
   background-color: var(--card-bg);
@@ -1185,6 +1272,13 @@ footer a:hover {
                             <input type="text" id="navSearchInput" class="form-control form-control-sm" placeholder="Search..." style="padding-right: 28px;">
                             <i class="bi bi-search" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); opacity: 0.6;"></i>
                         </div>
+                        <!-- Collection and Wantlist icons (only show when logged in) -->
+                        <span id="collectionIcon" class="settings-icon" onclick="showUserCollection()" style="display: none;" title="My Collection">
+                            <i class="bi bi-collection"></i>
+                        </span>
+                        <span id="wantlistIcon" class="settings-icon" onclick="showUserWantlist()" style="display: none;" title="My Wantlist">
+                            <i class="bi bi-heart"></i>
+                        </span>
                         <span class="profile-icon" onclick="openProfile()">
                             <i class="bi bi-person-circle"></i>
                         </span>
@@ -1297,7 +1391,7 @@ footer a:hover {
                 <table class="table table-hover table-bordered mb-0">
                     <thead id="table-header"></thead>
                     <tbody id="releases-table-body">
-                        <tr><td class="no-results" colspan="14">
+                        <tr><td class="no-results" colspan="15">
                             <p>Add a seller above to start tracking releases</p>
                         </td></tr>
                     </tbody>
@@ -1319,7 +1413,28 @@ footer a:hover {
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted small mb-4">Export your tracked sellers data and settings, or import them from a backup file.</p>
+                    <div class="mb-4">
+                        <h6 class="mb-3">Discogs Personal Access Token</h6>
+                        <p class="text-muted small mb-2">To access your Collection and Wantlist, enter your Personal Access Token from <a href="https://www.discogs.com/settings/developers" target="_blank">Discogs Developer Settings</a>.</p>
+                        
+                        <div id="tokenLoginSection" style="display: block;">
+                            <input type="text" class="form-control mb-2" id="profileTokenInput" placeholder="Paste your token here">
+                            <button type="button" class="btn btn-brand w-100 mb-2" onclick="loginWithTokenFromProfile()">
+                                <i class="bi bi-box-arrow-in-right"></i> Login
+                            </button>
+                        </div>
+                        
+                        <div id="tokenLoggedInSection" style="display: none;">
+                            <div class="alert alert-success mb-2">
+                                <i class="bi bi-check-circle"></i> Logged in as <strong id="profileUsername"></strong>
+                            </div>
+                            <button type="button" class="btn btn-outline-danger w-100" onclick="logoutOAuth()">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <hr>
                     
                     <div class="mb-4">
                         <h6 class="mb-3">Export Data</h6>
@@ -1401,6 +1516,90 @@ footer a:hover {
         </div>
     </div>
 
+    <!-- Collection Modal -->
+    <div class="modal fade" id="collectionModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">My Collection</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="collectionContent">
+                        <div class="text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wantlist Modal -->
+    <div class="modal fade" id="wantlistModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">My Wantlist</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="wantlistContent">
+                        <div class="text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OAuth Login Instructions Modal -->
+    <div class="modal fade" id="oauthLoginModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Login with Discogs</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>To access your Collection and Wantlist, you need a <strong>Personal Access Token</strong> from Discogs.</p>
+                    
+                    <h6 class="mt-3">How to get your token:</h6>
+                    <ol>
+                        <li>Go to <a href="https://www.discogs.com/settings/developers" target="_blank">Discogs Developer Settings</a></li>
+                        <li>Click <strong>"Generate new token"</strong></li>
+                        <li>Copy the token that appears</li>
+                        <li>Paste it below</li>
+                    </ol>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <i class="bi bi-exclamation-triangle"></i> Keep this token private! It gives access to your Discogs account.
+                    </div>
+                    
+                    <label for="userTokenInput" class="form-label mt-3">Personal Access Token</label>
+                    <input type="text" class="form-control" id="userTokenInput" placeholder="Paste your token here">
+                    
+                    <div class="form-text">This token will be stored securely in your browser and never sent to any server except Discogs.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-brand" onclick="loginWithToken()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer class="text-center py-3">
         <small>
             <a href="discogs.html" style="color: inherit; text-decoration: none">
@@ -1449,6 +1648,18 @@ let hasSearched = false;
 let currentVideoIndex = {};
 let trackedSellers = [];
 let selectedSellers = []; // Empty = all sellers
+
+// OAuth State
+let oauthUser = null;
+let userAccessToken = null;
+
+// View State
+let currentView = 'sellers'; // 'sellers', 'collection', 'wantlist'
+let userWantlistIds = new Set(); // Cache of release IDs in user's wantlist
+let cachedCollectionData = null; // Cache enriched collection data
+let cachedWantlistData = null; // Cache enriched wantlist data
+let lastCollectionIds = new Set(); // Track collection release IDs
+let lastWantlistIds = new Set(); // Track wantlist release IDs
 
 // IndexedDB configuration for larger cached payloads
 const DB_NAME = 'discogsSellerTracker';
@@ -1591,6 +1802,9 @@ function aggressiveCleanupLocalStorage() {
 document.addEventListener('DOMContentLoaded', async () => {
     // Clean up old job data on startup to free localStorage space
     cleanupLocalStorage();
+    
+    // Load user auth state
+    loadOAuthState();
     
     checkCredentials();
     
@@ -2765,7 +2979,18 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
     finishJob(jobId, username);
 }
 
-function loadAllSellersData() {
+async function loadAllSellersData() {
+    currentView = 'sellers';
+    
+    // Show sellers panel
+    const sellersPanel = document.getElementById('sellersPanel');
+    if (sellersPanel) sellersPanel.style.display = 'block';
+    
+    // Fetch wantlist IDs if logged in
+    if (oauthUser && userAccessToken) {
+        await fetchUserWantlistIds();
+    }
+    
     allData = [];
     
     const sellersToShow = selectedSellers.length > 0 ? selectedSellers : trackedSellers.map(s => s.username);
@@ -2773,10 +2998,11 @@ function loadAllSellersData() {
     sellersToShow.forEach(username => {
         const seller = trackedSellers.find(s => s.username === username);
         if (seller && seller.releases) {
-            // Add seller info to each release
+            // Add seller info to each release and mark if in wantlist
             const releasesWithSeller = seller.releases.map(r => ({
                 ...r,
-                seller_username: username
+                seller_username: username,
+                inWantlist: userWantlistIds.has(r.id)
             }));
             allData.push(...releasesWithSeller);
         }
@@ -2788,7 +3014,7 @@ function loadAllSellersData() {
         displayResults(allData, processingActive);
     } else {
         const tbody = document.getElementById('releases-table-body');
-        tbody.innerHTML = '<tr><td class="no-results" colspan="14"><p>No releases yet. Add sellers and they will appear here.</p></td></tr>';
+        tbody.innerHTML = '<tr><td class="no-results" colspan="15"><p>No releases yet. Add sellers and they will appear here.</p></td></tr>';
     }
 }
 
@@ -2848,6 +3074,767 @@ function extractYouTubeID(url) {
     const regex = /(?:youtube\.com\/.*v=|youtu\.be\/)([^"&?/\s]{11})/;
     const match = url.match(regex);
     return match ? match[1] : null;
+}
+
+// ==================== USER AUTHENTICATION ====================
+
+// Load user auth state from localStorage on init
+function loadOAuthState() {
+    const token = localStorage.getItem('discogs_user_token');
+    const userStr = localStorage.getItem('oauth_user');
+    
+    if (token && userStr) {
+        userAccessToken = token;
+        try {
+            oauthUser = JSON.parse(userStr);
+            updateOAuthUI();
+            // Fetch wantlist IDs in background
+            fetchUserWantlistIds();
+        } catch (e) {
+            console.error('Failed to parse user data:', e);
+        }
+    } else if (token) {
+        // Have token but no user data, fetch it
+        userAccessToken = token;
+        fetchUserIdentity();
+    }
+}
+
+// Update UI based on auth state
+function updateOAuthUI() {
+    const collectionIcon = document.getElementById('collectionIcon');
+    const wantlistIcon = document.getElementById('wantlistIcon');
+    const tokenLoginSection = document.getElementById('tokenLoginSection');
+    const tokenLoggedInSection = document.getElementById('tokenLoggedInSection');
+    const profileUsername = document.getElementById('profileUsername');
+    
+    if (oauthUser) {
+        // Show collection and wantlist icons
+        if (collectionIcon) collectionIcon.style.display = 'inline-block';
+        if (wantlistIcon) wantlistIcon.style.display = 'inline-block';
+        
+        // Update profile modal
+        if (tokenLoginSection) tokenLoginSection.style.display = 'none';
+        if (tokenLoggedInSection) tokenLoggedInSection.style.display = 'block';
+        if (profileUsername) profileUsername.textContent = oauthUser.username;
+    } else {
+        // Hide collection and wantlist icons
+        if (collectionIcon) collectionIcon.style.display = 'none';
+        if (wantlistIcon) wantlistIcon.style.display = 'none';
+        
+        // Update profile modal
+        if (tokenLoginSection) tokenLoginSection.style.display = 'block';
+        if (tokenLoggedInSection) tokenLoggedInSection.style.display = 'none';
+    }
+}
+
+// Toggle user dropdown menu
+function toggleUserDropdown() {
+    const menu = document.getElementById('userDropdownMenu');
+    menu.classList.toggle('show');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const userSection = document.getElementById('oauthUserSection');
+    const menu = document.getElementById('userDropdownMenu');
+    if (userSection && menu && !userSection.contains(e.target)) {
+        menu.classList.remove('show');
+    }
+});
+
+// Show OAuth login instructions
+function showOAuthInstructions() {
+    const modal = new bootstrap.Modal(document.getElementById('oauthLoginModal'));
+    document.getElementById('userTokenInput').value = '';
+    modal.show();
+}
+
+// Login with personal access token
+async function loginWithToken() {
+    const tokenInput = document.getElementById('userTokenInput');
+    const token = tokenInput.value.trim();
+    
+    if (!token) {
+        alert('Please enter your personal access token.');
+        return;
+    }
+    
+    // Store token
+    userAccessToken = token;
+    localStorage.setItem('discogs_user_token', token);
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('oauthLoginModal'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Fetch user identity
+    try {
+        await fetchUserIdentity();
+        alert('Successfully logged in to Discogs!');
+    } catch (error) {
+        console.error('Login error:', error);
+        alert('Failed to login. Please check your token and try again.');
+        userAccessToken = null;
+        localStorage.removeItem('discogs_user_token');
+    }
+}
+
+// Login with token from profile modal
+async function loginWithTokenFromProfile() {
+    const tokenInput = document.getElementById('profileTokenInput');
+    const token = tokenInput.value.trim();
+    
+    if (!token) {
+        alert('Please enter your personal access token.');
+        return;
+    }
+    
+    // Store token
+    userAccessToken = token;
+    localStorage.setItem('discogs_user_token', token);
+    
+    // Fetch user identity
+    try {
+        await fetchUserIdentity();
+        alert('Successfully logged in to Discogs!');
+        
+        // Close modal after successful login
+        const modal = bootstrap.Modal.getInstance(document.getElementById('profileModal'));
+        if (modal) {
+            modal.hide();
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        alert('Failed to login. Please check your token and try again.');
+        userAccessToken = null;
+        localStorage.removeItem('discogs_user_token');
+    }
+}
+
+// Fetch authenticated user identity
+async function fetchUserIdentity() {
+    if (!userAccessToken) {
+        return;
+    }
+    
+    try {
+        const identityUrl = 'https://api.discogs.com/oauth/identity';
+        
+        const response = await fetch(identityUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Discogs token=${userAccessToken}`,
+                'User-Agent': 'DiscogsTrackr/1.0'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch identity: ${response.status}`);
+        }
+        
+        const userData = await response.json();
+        oauthUser = userData;
+        localStorage.setItem('oauth_user', JSON.stringify(userData));
+        
+        updateOAuthUI();
+        
+        // Fetch wantlist IDs in background
+        fetchUserWantlistIds();
+        
+    } catch (error) {
+        console.error('Failed to fetch user identity:', error);
+        throw error;
+    }
+}
+
+// Logout
+function logoutOAuth() {
+    oauthUser = null;
+    userAccessToken = null;
+    userWantlistIds.clear();
+    cachedCollectionData = null;
+    cachedWantlistData = null;
+    lastCollectionIds.clear();
+    lastWantlistIds.clear();
+    
+    localStorage.removeItem('discogs_user_token');
+    localStorage.removeItem('oauth_user');
+    
+    updateOAuthUI();
+    alert('Successfully logged out.');
+}
+
+// Make authenticated API request with token
+async function makeAuthenticatedRequest(url) {
+    if (!userAccessToken) {
+        throw new Error('Not authenticated. Please log in first.');
+    }
+    
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Discogs token=${userAccessToken}`,
+            'User-Agent': 'DiscogsTrackr/1.0'
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+    }
+    
+    return await response.json();
+}
+
+// Fetch user's wantlist IDs to check which releases are wanted
+async function fetchUserWantlistIds() {
+    if (!oauthUser || !userAccessToken) {
+        return;
+    }
+    
+    try {
+        const username = oauthUser.username;
+        // Fetch first page to get total
+        const firstPageUrl = `https://api.discogs.com/users/${username}/wants?per_page=100&page=1`;
+        const firstPage = await makeAuthenticatedRequest(firstPageUrl);
+        
+        userWantlistIds.clear();
+        
+        // Add IDs from first page
+        if (firstPage.wants) {
+            firstPage.wants.forEach(item => {
+                userWantlistIds.add(item.basic_information.id);
+            });
+        }
+        
+        // Fetch remaining pages if needed
+        const totalPages = firstPage.pagination?.pages || 1;
+        if (totalPages > 1) {
+            const pagePromises = [];
+            for (let page = 2; page <= Math.min(totalPages, 10); page++) { // Limit to 10 pages (1000 items)
+                const pageUrl = `https://api.discogs.com/users/${username}/wants?per_page=100&page=${page}`;
+                pagePromises.push(makeAuthenticatedRequest(pageUrl));
+            }
+            
+            const pages = await Promise.all(pagePromises);
+            pages.forEach(pageData => {
+                if (pageData.wants) {
+                    pageData.wants.forEach(item => {
+                        userWantlistIds.add(item.basic_information.id);
+                    });
+                }
+            });
+        }
+        
+        console.log(`Loaded ${userWantlistIds.size} items from wantlist`);
+    } catch (error) {
+        console.error('Failed to fetch wantlist IDs:', error);
+    }
+}
+
+// Show user collection
+async function showUserCollection() {
+    if (!oauthUser) {
+        alert('Please log in first. Go to Profile to enter your access token.');
+        return;
+    }
+    
+    currentView = 'collection';
+    
+    // Hide sellers panel
+    const sellersPanel = document.getElementById('sellersPanel');
+    if (sellersPanel) sellersPanel.style.display = 'none';
+    
+    // Show loading in table
+    const tbody = document.getElementById('releases-table-body');
+    tbody.innerHTML = '<tr><td colspan="15" class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading your collection...</p></td></tr>';
+    
+    try {
+        const username = oauthUser.username;
+        const collectionUrl = `https://api.discogs.com/users/${username}/collection/folders/0/releases?per_page=100`;
+        
+        const data = await makeAuthenticatedRequest(collectionUrl);
+        
+        if (!data.releases || data.releases.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="15" class="text-center py-5"><div class="alert alert-info">Your collection is empty.</div></td></tr>';
+            return;
+        }
+        
+        // Get current release IDs
+        const currentCollectionIds = new Set(data.releases.map(item => item.basic_information.id));
+        
+        // Determine what changed
+        const addedIds = [...currentCollectionIds].filter(id => !lastCollectionIds.has(id));
+        const removedIds = [...lastCollectionIds].filter(id => !currentCollectionIds.has(id));
+        
+        // Check if we have cached data and only need to update
+        if (cachedCollectionData && (addedIds.length > 0 || removedIds.length > 0)) {
+            // Incremental update
+            console.log(`Collection changed: +${addedIds.length} added, -${removedIds.length} removed`);
+            
+            // Remove deleted items from cache
+            let updatedCollection = cachedCollectionData.filter(item => !removedIds.includes(item.id));
+            
+            if (addedIds.length > 0) {
+                // Show enriching status for new items
+                tbody.innerHTML = `<tr><td colspan="15" class="text-center py-5">
+                    <div class="spinner-border" role="status"></div>
+                    <p class="mt-2 mb-1">Enriching ${addedIds.length} new item(s)...</p>
+                    <p class="mb-0" id="enrichProgress"><strong>0 / ${addedIds.length}</strong> (0%)</p>
+                </td></tr>`;
+                
+                // Enrich only new items
+                for (let i = 0; i < addedIds.length; i++) {
+                    const releaseId = addedIds[i];
+                    const item = data.releases.find(r => r.basic_information.id === releaseId);
+                    const release = item.basic_information;
+                    
+                    try {
+                        // Fetch full release data
+                        const fullRelease = await makeDiscogsRequest(`https://api.discogs.com/releases/${release.id}`);
+                        
+                        const enrichedRelease = {
+                            id: release.id,
+                            title: fullRelease.title || release.title,
+                            artist: release.artists?.map(a => a.name).join(', ') || '',
+                            artist_title: fullRelease.title || release.title,
+                            label: release.labels?.map(l => l.name).join(', ') || '',
+                            year: fullRelease.year || release.year || '',
+                            genres: JSON.stringify(fullRelease.genres || release.genres || []),
+                            styles: JSON.stringify(fullRelease.styles || release.styles || []),
+                            url: `https://www.discogs.com/release/${release.id}`,
+                            avg_rating: fullRelease.community?.rating?.average || 0,
+                            num_ratings: fullRelease.community?.rating?.count || 0,
+                            seller_username: 'My Collection',
+                            demand_coeff: fullRelease.community ? (fullRelease.community.want + 1) / (fullRelease.community.have + 1) : 0,
+                            have_count: fullRelease.community?.have || 0,
+                            want_count: fullRelease.community?.want || 0,
+                            price: 0,
+                            video_urls: JSON.stringify(fullRelease.videos || []),
+                            bayesian_score: fullRelease.community?.rating?.average || 0,
+                            inWantlist: userWantlistIds.has(release.id)
+                        };
+                        
+                        updatedCollection.push(enrichedRelease);
+                    } catch (error) {
+                        console.error(`Failed to fetch full data for release ${release.id}:`, error);
+                    }
+                    
+                    // Update progress
+                    const progressEl = document.getElementById('enrichProgress');
+                    if (progressEl) {
+                        const completed = i + 1;
+                        const percentage = Math.round((completed / addedIds.length) * 100);
+                        progressEl.innerHTML = `<strong>${completed} / ${addedIds.length}</strong> (${percentage}%)`;
+                    }
+                }
+            }
+            
+            // Update cache and IDs
+            cachedCollectionData = updatedCollection;
+            lastCollectionIds = currentCollectionIds;
+            
+            // Display updated data
+            allData = updatedCollection;
+            hasSearched = true;
+            displayResults(updatedCollection, false);
+            
+        } else if (cachedCollectionData && addedIds.length === 0 && removedIds.length === 0) {
+            // No changes, use cached data
+            console.log('Collection unchanged, using cache');
+            allData = cachedCollectionData;
+            hasSearched = true;
+            displayResults(cachedCollectionData, false);
+            
+        } else {
+            // First time or cache invalidated - full enrichment
+            console.log('Performing full collection enrichment');
+            
+            // Fetch full release data for each item to get ratings, have/want, videos
+            const totalItems = data.releases.length;
+            tbody.innerHTML = `<tr><td colspan="15" class="text-center py-5">
+                <div class="spinner-border" role="status"></div>
+                <p class="mt-2 mb-1">Enriching collection data...</p>
+                <p class="mb-0" id="enrichProgress"><strong>0 / ${totalItems}</strong> (0%)</p>
+            </td></tr>`;
+            
+            const collectionReleases = [];
+            for (let i = 0; i < data.releases.length; i++) {
+                const item = data.releases[i];
+                const release = item.basic_information;
+            
+            try {
+                // Fetch full release data
+                const fullRelease = await makeDiscogsRequest(`https://api.discogs.com/releases/${release.id}`);
+                
+                const enrichedRelease = {
+                    id: release.id,
+                    title: fullRelease.title || release.title,
+                    artist: release.artists?.map(a => a.name).join(', ') || '',
+                    artist_title: fullRelease.title || release.title,
+                    label: release.labels?.map(l => l.name).join(', ') || '',
+                    year: fullRelease.year || release.year || '',
+                    genres: JSON.stringify(fullRelease.genres || release.genres || []),
+                    styles: JSON.stringify(fullRelease.styles || release.styles || []),
+                    url: `https://www.discogs.com/release/${release.id}`,
+                    avg_rating: fullRelease.community?.rating?.average || 0,
+                    num_ratings: fullRelease.community?.rating?.count || 0,
+                    seller_username: 'My Collection',
+                    demand_coeff: fullRelease.community ? (fullRelease.community.want + 1) / (fullRelease.community.have + 1) : 0,
+                    have_count: fullRelease.community?.have || 0,
+                    want_count: fullRelease.community?.want || 0,
+                    price: 0,
+                    video_urls: JSON.stringify(fullRelease.videos || []),
+                    bayesian_score: fullRelease.community?.rating?.average || 0
+                };
+                
+                collectionReleases.push(enrichedRelease);
+            } catch (error) {
+                console.error(`Failed to fetch full data for release ${release.id}:`, error);
+                // Fallback to basic data
+                collectionReleases.push({
+                    id: release.id,
+                    title: release.title,
+                    artist: release.artists?.map(a => a.name).join(', ') || '',
+                    artist_title: release.title,
+                    label: release.labels?.map(l => l.name).join(', ') || '',
+                    year: release.year || '',
+                    genres: JSON.stringify(release.genres || []),
+                    styles: JSON.stringify(release.styles || []),
+                    url: `https://www.discogs.com/release/${release.id}`,
+                    avg_rating: 0,
+                    num_ratings: 0,
+                    seller_username: 'My Collection',
+                    demand_coeff: 0,
+                    have_count: 0,
+                    want_count: 0,
+                    price: 0,
+                    video_urls: JSON.stringify([]),
+                    bayesian_score: 0
+                });
+            }
+            
+            // Update progress
+            const progressEl = document.getElementById('enrichProgress');
+            if (progressEl) {
+                const completed = i + 1;
+                const percentage = Math.round((completed / totalItems) * 100);
+                progressEl.innerHTML = `<strong>${completed} / ${totalItems}</strong> (${percentage}%)`;
+                }
+            }
+            
+            // Cache the enriched data and save IDs
+            cachedCollectionData = collectionReleases;
+            lastCollectionIds = currentCollectionIds;
+            
+            // Display in table
+            allData = collectionReleases;
+            hasSearched = true;
+            displayResults(collectionReleases, false);
+        }
+        
+    } catch (error) {
+        console.error('Failed to fetch collection:', error);
+        tbody.innerHTML = '<tr><td colspan="15" class="text-center py-5"><div class="alert alert-danger">Failed to load collection. Please try again.</div></td></tr>';
+    }
+}
+
+// Show user wantlist
+async function showUserWantlist() {
+    if (!oauthUser) {
+        alert('Please log in first. Go to Profile to enter your access token.');
+        return;
+    }
+    
+    currentView = 'wantlist';
+    
+    // Hide sellers panel
+    const sellersPanel = document.getElementById('sellersPanel');
+    if (sellersPanel) sellersPanel.style.display = 'none';
+    
+    // Show loading in table
+    const tbody = document.getElementById('releases-table-body');
+    tbody.innerHTML = '<tr><td colspan="15" class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading your wantlist...</p></td></tr>';
+    
+    try {
+        const username = oauthUser.username;
+        const wantlistUrl = `https://api.discogs.com/users/${username}/wants?per_page=100`;
+        
+        const data = await makeAuthenticatedRequest(wantlistUrl);
+        
+        if (!data.wants || data.wants.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="15" class="text-center py-5"><div class="alert alert-info">Your wantlist is empty.</div></td></tr>';
+            return;
+        }
+        
+        // Get current release IDs
+        const currentWantlistIds = new Set(data.wants.map(item => item.basic_information.id));
+        
+        // Determine what changed
+        const addedIds = [...currentWantlistIds].filter(id => !lastWantlistIds.has(id));
+        const removedIds = [...lastWantlistIds].filter(id => !currentWantlistIds.has(id));
+        
+        // Check if we have cached data and only need to update
+        if (cachedWantlistData && (addedIds.length > 0 || removedIds.length > 0)) {
+            // Incremental update
+            console.log(`Wantlist changed: +${addedIds.length} added, -${removedIds.length} removed`);
+            
+            // Remove deleted items from cache
+            let updatedWantlist = cachedWantlistData.filter(item => !removedIds.includes(item.id));
+            
+            if (addedIds.length > 0) {
+                // Show enriching status for new items
+                tbody.innerHTML = `<tr><td colspan="15" class="text-center py-5">
+                    <div class="spinner-border" role="status"></div>
+                    <p class="mt-2 mb-1">Enriching ${addedIds.length} new item(s)...</p>
+                    <p class="mb-0" id="enrichProgress"><strong>0 / ${addedIds.length}</strong> (0%)</p>
+                </td></tr>`;
+                
+                // Enrich only new items
+                for (let i = 0; i < addedIds.length; i++) {
+                    const releaseId = addedIds[i];
+                    const item = data.wants.find(w => w.basic_information.id === releaseId);
+                    const release = item.basic_information;
+                    
+                    try {
+                        // Fetch full release data
+                        const fullRelease = await makeDiscogsRequest(`https://api.discogs.com/releases/${release.id}`);
+                        
+                        const enrichedRelease = {
+                            id: release.id,
+                            title: fullRelease.title || release.title,
+                            artist: release.artists?.map(a => a.name).join(', ') || '',
+                            artist_title: fullRelease.title || release.title,
+                            label: release.labels?.map(l => l.name).join(', ') || '',
+                            year: fullRelease.year || release.year || '',
+                            genres: JSON.stringify(fullRelease.genres || release.genres || []),
+                            styles: JSON.stringify(fullRelease.styles || release.styles || []),
+                            url: `https://www.discogs.com/release/${release.id}`,
+                            avg_rating: fullRelease.community?.rating?.average || 0,
+                            num_ratings: fullRelease.community?.rating?.count || 0,
+                            seller_username: 'My Wantlist',
+                            demand_coeff: fullRelease.community ? (fullRelease.community.want + 1) / (fullRelease.community.have + 1) : 0,
+                            have_count: fullRelease.community?.have || 0,
+                            want_count: fullRelease.community?.want || 0,
+                            price: 0,
+                            video_urls: JSON.stringify(fullRelease.videos || []),
+                            bayesian_score: fullRelease.community?.rating?.average || 0,
+                            notes: item.notes || '',
+                            inWantlist: true
+                        };
+                        
+                        updatedWantlist.push(enrichedRelease);
+                    } catch (error) {
+                        console.error(`Failed to fetch full data for release ${release.id}:`, error);
+                    }
+                    
+                    // Update progress
+                    const progressEl = document.getElementById('enrichProgress');
+                    if (progressEl) {
+                        const completed = i + 1;
+                        const percentage = Math.round((completed / addedIds.length) * 100);
+                        progressEl.innerHTML = `<strong>${completed} / ${addedIds.length}</strong> (${percentage}%)`;
+                    }
+                }
+            }
+            
+            // Update cache and IDs
+            cachedWantlistData = updatedWantlist;
+            lastWantlistIds = currentWantlistIds;
+            
+            // Display updated data
+            allData = updatedWantlist;
+            hasSearched = true;
+            displayResults(updatedWantlist, false);
+            
+        } else if (cachedWantlistData && addedIds.length === 0 && removedIds.length === 0) {
+            // No changes, use cached data
+            console.log('Wantlist unchanged, using cache');
+            allData = cachedWantlistData;
+            hasSearched = true;
+            displayResults(cachedWantlistData, false);
+            
+        } else {
+            // First time or cache invalidated - full enrichment
+            console.log('Performing full wantlist enrichment');
+            
+            // Fetch full release data for each item to get ratings, have/want, videos
+            const totalItems = data.wants.length;
+            tbody.innerHTML = `<tr><td colspan="15" class="text-center py-5">
+                <div class="spinner-border" role="status"></div>
+                <p class="mt-2 mb-1">Enriching wantlist data...</p>
+                <p class="mb-0" id="enrichProgress"><strong>0 / ${totalItems}</strong> (0%)</p>
+            </td></tr>`;
+            
+            const wantlistReleases = [];
+            for (let i = 0; i < data.wants.length; i++) {
+                const item = data.wants[i];
+                const release = item.basic_information;
+            
+            try {
+                // Fetch full release data
+                const fullRelease = await makeDiscogsRequest(`https://api.discogs.com/releases/${release.id}`);
+                
+                const enrichedRelease = {
+                    id: release.id,
+                    title: fullRelease.title || release.title,
+                    artist: release.artists?.map(a => a.name).join(', ') || '',
+                    artist_title: fullRelease.title || release.title,
+                    label: release.labels?.map(l => l.name).join(', ') || '',
+                    year: fullRelease.year || release.year || '',
+                    genres: JSON.stringify(fullRelease.genres || release.genres || []),
+                    styles: JSON.stringify(fullRelease.styles || release.styles || []),
+                    url: `https://www.discogs.com/release/${release.id}`,
+                    avg_rating: fullRelease.community?.rating?.average || 0,
+                    num_ratings: fullRelease.community?.rating?.count || 0,
+                    seller_username: 'My Wantlist',
+                    demand_coeff: fullRelease.community ? (fullRelease.community.want + 1) / (fullRelease.community.have + 1) : 0,
+                    have_count: fullRelease.community?.have || 0,
+                    want_count: fullRelease.community?.want || 0,
+                    price: 0,
+                    video_urls: JSON.stringify(fullRelease.videos || []),
+                    bayesian_score: fullRelease.community?.rating?.average || 0,
+                    notes: item.notes || '',
+                    inWantlist: true // Mark as in wantlist
+                };
+                
+                wantlistReleases.push(enrichedRelease);
+            } catch (error) {
+                console.error(`Failed to fetch full data for release ${release.id}:`, error);
+                // Fallback to basic data
+                wantlistReleases.push({
+                    id: release.id,
+                    title: release.title,
+                    artist: release.artists?.map(a => a.name).join(', ') || '',
+                    artist_title: release.title,
+                    label: release.labels?.map(l => l.name).join(', ') || '',
+                    year: release.year || '',
+                    genres: JSON.stringify(release.genres || []),
+                    styles: JSON.stringify(release.styles || []),
+                    url: `https://www.discogs.com/release/${release.id}`,
+                    avg_rating: 0,
+                    num_ratings: 0,
+                    seller_username: 'My Wantlist',
+                    demand_coeff: 0,
+                    have_count: 0,
+                    want_count: 0,
+                    price: 0,
+                    video_urls: JSON.stringify([]),
+                    bayesian_score: 0,
+                    notes: item.notes || '',
+                    inWantlist: true
+                });
+            }
+            
+            // Update progress
+            const progressEl = document.getElementById('enrichProgress');
+            if (progressEl) {
+                const completed = i + 1;
+                const percentage = Math.round((completed / totalItems) * 100);
+                progressEl.innerHTML = `<strong>${completed} / ${totalItems}</strong> (${percentage}%)`;
+                }
+            }
+            
+            // Cache the enriched data and save IDs
+            cachedWantlistData = wantlistReleases;
+            lastWantlistIds = currentWantlistIds;
+            
+            // Display in table
+            allData = wantlistReleases;
+            hasSearched = true;
+            displayResults(wantlistReleases, false);
+        }
+        
+    } catch (error) {
+        console.error('Failed to fetch wantlist:', error);
+        tbody.innerHTML = '<tr><td colspan="15" class="text-center py-5"><div class="alert alert-danger">Failed to load wantlist. Please try again.</div></td></tr>';
+    }
+}
+
+// Toggle release in wantlist (add or remove)
+async function toggleWantlist(releaseId, buttonElement) {
+    if (!oauthUser || !userAccessToken) {
+        alert('Please log in with Discogs to manage your wantlist.');
+        return;
+    }
+    
+    const isInWantlist = userWantlistIds.has(releaseId);
+    
+    try {
+        const username = oauthUser.username;
+        const wantlistUrl = `https://api.discogs.com/users/${username}/wants/${releaseId}`;
+        
+        if (isInWantlist) {
+            // Remove from wantlist
+            const response = await fetch(wantlistUrl, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Discogs token=${userAccessToken}`,
+                    'User-Agent': 'DiscogsTrackr/1.0'
+                }
+            });
+            
+                if (response.status === 204) {
+                    // Successfully removed
+                    userWantlistIds.delete(releaseId);
+                    
+                    // Update cached data
+                    if (cachedCollectionData) {
+                        const item = cachedCollectionData.find(r => r.id === releaseId);
+                        if (item) item.inWantlist = false;
+                    }
+                    if (cachedWantlistData) {
+                        // Remove from cached wantlist
+                        cachedWantlistData = cachedWantlistData.filter(r => r.id !== releaseId);
+                    }
+                    
+                    if (buttonElement) {
+                        buttonElement.innerHTML = '<i class="bi bi-heart"></i>';
+                        buttonElement.onclick = () => toggleWantlist(releaseId, buttonElement);
+                    }
+                    
+                    // If we're viewing wantlist, refresh the display
+                    if (currentView === 'wantlist') {
+                        showUserWantlist();
+                    }
+                } else {
+                    throw new Error(`Failed to remove from wantlist: ${response.status}`);
+                }
+        } else {
+            // Add to wantlist
+            const response = await fetch(wantlistUrl, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Discogs token=${userAccessToken}`,
+                    'User-Agent': 'DiscogsTrackr/1.0'
+                }
+            });
+            
+            if (response.status === 201 || response.status === 204) {
+                // Successfully added
+                userWantlistIds.add(releaseId);
+                
+                // Update cached data
+                if (cachedCollectionData) {
+                    const item = cachedCollectionData.find(r => r.id === releaseId);
+                    if (item) item.inWantlist = true;
+                }
+                
+                if (buttonElement) {
+                    buttonElement.innerHTML = '<i class="bi bi-heart-fill" style="color: var(--accent-color);"></i>';
+                    buttonElement.onclick = () => toggleWantlist(releaseId, buttonElement);
+                }
+            } else {
+                throw new Error(`Failed to add to wantlist: ${response.status}`);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Failed to update wantlist:', error);
+        alert('Failed to update wantlist. Please try again.');
+    }
 }
 
 // ==================== DISCOGS API CALLS ====================
@@ -3785,7 +4772,7 @@ function renderTable() {
     updateSortIndicators();
     
     if (filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="14" class="text-center">No releases found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15" class="text-center">No releases found</td></tr>';
         return;
     }
     
@@ -4380,6 +5367,7 @@ function renderRow(row, release) {
         const ratingStars = release.avg_rating ? generateStars(release.avg_rating) : '<div class="text-muted">No rating</div>';
         const ratingText = release.avg_rating ? `${parseFloat(release.avg_rating).toFixed(2)}${release.num_ratings ? ` (${release.num_ratings})` : ''}` : '';
         
+        // Basic columns always shown
         row.innerHTML = `
             <td>
                 <div class="title-cell">
@@ -4391,42 +5379,95 @@ function renderRow(row, release) {
             <td class="text-center">${release.year || '-'}</td>
         `;
         row.appendChild(genreStyleCell);
-        const priceConditionAbbr = formatConditionAbbrev(getReleaseCondition(release));
+        
+        // Rating and community stats columns (shown in all views)
+        row.innerHTML += `<td class="text-center">${ratingStars} ${ratingText}</td>`;
+        
+        // Seller column only for sellers view
+        if (currentView === 'sellers') {
+            row.innerHTML += `<td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>`;
+        }
+        
+        // Community stats (shown in all views)
         row.innerHTML += `
-            <td class="text-center">${ratingStars} ${ratingText}</td>
-            <td class="text-center"><span class="badge bg-secondary">${escapeHtml(release.seller_username || '')}</span></td>
             <td class="text-center">${release.demand_coeff ? parseFloat(release.demand_coeff).toFixed(2) : '-'}</td>
             <td class="text-center">${release.num_ratings || '0'}</td>
             <td class="text-center">${release.have_count || '0'}</td>
             <td class="text-center">${release.want_count || '0'}</td>
-            <td class="text-center"><div class="price-cell" style="display:inline-block; position:relative; min-width: 64px;">
-                <span class="price-text">${formatPrice(release.price)}</span>
-                ${priceConditionAbbr ? `<span class="badge-condition">${priceConditionAbbr}</span>` : ''}
-            </div></td>
-            <td class="text-center">${videoCell}</td>
         `;
+        
+        // Price column only for sellers view
+        if (currentView === 'sellers') {
+            const priceConditionAbbr = formatConditionAbbrev(getReleaseCondition(release));
+            row.innerHTML += `
+                <td class="text-center"><div class="price-cell" style="display:inline-block; position:relative; min-width: 64px;">
+                    <span class="price-text">${formatPrice(release.price)}</span>
+                    ${priceConditionAbbr ? `<span class="badge-condition">${priceConditionAbbr}</span>` : ''}
+                </div></td>
+            `;
+        }
+        
+        // Actions column only for sellers view (before videos)
+        if (currentView === 'sellers') {
+            const heartIcon = release.inWantlist 
+                ? '<i class="bi bi-heart-fill" style="color: var(--accent-color);"></i>'
+                : '<i class="bi bi-heart"></i>';
+            const titleText = release.inWantlist ? 'Remove from Wantlist' : 'Add to Wantlist';
+            
+            row.innerHTML += `
+                <td class="text-center">
+                    <button class="wantlist-heart-btn" onclick="toggleWantlist(${release.id}, this)" title="${titleText}">
+                        ${heartIcon}
+                    </button>
+                </td>
+            `;
+        }
+        
+        // Video column always shown (after actions)
+        row.innerHTML += `<td class="text-center">${videoCell}</td>`;
     }
 }
 
 function setupTableHeaders() {
     const thead = document.getElementById('table-header');
-    if (thead.querySelector('tr')) return;
+    thead.innerHTML = ''; // Clear existing headers
     
-    const columns = [
-        { key: 'title', label: 'Title' },
-        { key: 'artist', label: 'Artist' },
-        { key: 'label', label: 'Label' },
-        { key: 'year', label: 'Year' },
-        { key: null, label: 'Genre / Style', nosort: true },
-        { key: 'bayesian_score', label: 'Rating' },
-        { key: 'seller_username', label: 'Seller' },
-        { key: 'demand_coeff', label: 'Rarity' },
-        { key: 'num_ratings', label: '# Ratings' },
-        { key: 'have_count', label: 'Have' },
-        { key: 'want_count', label: 'Want' },
-        { key: 'price', label: 'Price' },
-        { key: null, label: 'Videos', nosort: true }
-    ];
+    // Define which columns to show based on current view
+    let columns;
+    if (currentView === 'collection' || currentView === 'wantlist') {
+        // Collection/Wantlist columns (no seller, no price, no actions)
+        columns = [
+            { key: 'title', label: 'Title' },
+            { key: 'artist', label: 'Artist' },
+            { key: 'label', label: 'Label' },
+            { key: 'year', label: 'Year' },
+            { key: null, label: 'Genre / Style', nosort: true },
+            { key: 'bayesian_score', label: 'Rating' },
+            { key: 'demand_coeff', label: 'Rarity' },
+            { key: 'num_ratings', label: '# Ratings' },
+            { key: 'have_count', label: 'Have' },
+            { key: 'want_count', label: 'Want' },
+            { key: null, label: 'Videos', nosort: true }
+        ];
+    } else {
+        // Full columns for seller tracking view
+        columns = [
+            { key: 'title', label: 'Title' },
+            { key: 'artist', label: 'Artist' },
+            { key: 'label', label: 'Label' },
+            { key: 'year', label: 'Year' },
+            { key: null, label: 'Genre / Style', nosort: true },
+            { key: 'bayesian_score', label: 'Rating' },
+            { key: 'seller_username', label: 'Seller' },
+            { key: 'demand_coeff', label: 'Rarity' },
+            { key: 'num_ratings', label: '# Ratings' },
+            { key: 'have_count', label: 'Have' },
+            { key: 'want_count', label: 'Want' },
+            { key: 'price', label: 'Price' },
+            { key: null, label: 'Actions', nosort: true },
+            { key: null, label: 'Videos', nosort: true }
+        ];
+    }
     
     const headerRow = document.createElement('tr');
     columns.forEach(col => {
