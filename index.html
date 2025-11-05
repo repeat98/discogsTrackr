@@ -1255,7 +1255,7 @@ footer a:hover {
         <nav class="navbar navbar-expand-lg navbar-dark">
             <div class="container MainContainer">
                 <div class="d-flex justify-content-between align-items-center w-100">
-                    <a class="navbar-brand d-flex align-items-center" href="./">
+                    <a class="navbar-brand d-flex align-items-center" href="#" onclick="loadAllSellersData(); return false;">
                         <img
                             src="img/gruuvs-logo.svg"
                             alt="Discogs Trackr Logo"
@@ -1660,6 +1660,77 @@ let cachedCollectionData = null; // Cache enriched collection data
 let cachedWantlistData = null; // Cache enriched wantlist data
 let lastCollectionIds = new Set(); // Track collection release IDs
 let lastWantlistIds = new Set(); // Track wantlist release IDs
+
+// ==================== CACHE PERSISTENCE ====================
+// Save cache to localStorage
+function saveCollectionCache() {
+    if (cachedCollectionData && oauthUser) {
+        try {
+            localStorage.setItem(`collection_cache_${oauthUser.username}`, JSON.stringify(cachedCollectionData));
+            localStorage.setItem(`collection_ids_${oauthUser.username}`, JSON.stringify([...lastCollectionIds]));
+        } catch (e) {
+            console.error('Failed to save collection cache:', e);
+        }
+    }
+}
+
+function saveWantlistCache() {
+    if (cachedWantlistData && oauthUser) {
+        try {
+            localStorage.setItem(`wantlist_cache_${oauthUser.username}`, JSON.stringify(cachedWantlistData));
+            localStorage.setItem(`wantlist_ids_${oauthUser.username}`, JSON.stringify([...lastWantlistIds]));
+        } catch (e) {
+            console.error('Failed to save wantlist cache:', e);
+        }
+    }
+}
+
+// Load cache from localStorage
+function loadCollectionCache() {
+    if (oauthUser) {
+        try {
+            const cachedData = localStorage.getItem(`collection_cache_${oauthUser.username}`);
+            const cachedIds = localStorage.getItem(`collection_ids_${oauthUser.username}`);
+            if (cachedData && cachedIds) {
+                cachedCollectionData = JSON.parse(cachedData);
+                lastCollectionIds = new Set(JSON.parse(cachedIds));
+                console.log(`Loaded collection cache: ${cachedCollectionData.length} items`);
+            }
+        } catch (e) {
+            console.error('Failed to load collection cache:', e);
+        }
+    }
+}
+
+function loadWantlistCache() {
+    if (oauthUser) {
+        try {
+            const cachedData = localStorage.getItem(`wantlist_cache_${oauthUser.username}`);
+            const cachedIds = localStorage.getItem(`wantlist_ids_${oauthUser.username}`);
+            if (cachedData && cachedIds) {
+                cachedWantlistData = JSON.parse(cachedData);
+                lastWantlistIds = new Set(JSON.parse(cachedIds));
+                console.log(`Loaded wantlist cache: ${cachedWantlistData.length} items`);
+            }
+        } catch (e) {
+            console.error('Failed to load wantlist cache:', e);
+        }
+    }
+}
+
+// Clear cache for a user
+function clearUserCache() {
+    if (oauthUser) {
+        localStorage.removeItem(`collection_cache_${oauthUser.username}`);
+        localStorage.removeItem(`collection_ids_${oauthUser.username}`);
+        localStorage.removeItem(`wantlist_cache_${oauthUser.username}`);
+        localStorage.removeItem(`wantlist_ids_${oauthUser.username}`);
+    }
+    cachedCollectionData = null;
+    cachedWantlistData = null;
+    lastCollectionIds.clear();
+    lastWantlistIds.clear();
+}
 
 // IndexedDB configuration for larger cached payloads
 const DB_NAME = 'discogsSellerTracker';
@@ -3088,6 +3159,9 @@ function loadOAuthState() {
         try {
             oauthUser = JSON.parse(userStr);
             updateOAuthUI();
+            // Load cached collection and wantlist data
+            loadCollectionCache();
+            loadWantlistCache();
             // Fetch wantlist IDs in background
             fetchUserWantlistIds();
         } catch (e) {
@@ -3252,13 +3326,12 @@ async function fetchUserIdentity() {
 
 // Logout
 function logoutOAuth() {
+    // Clear cache before clearing oauthUser (needed for username)
+    clearUserCache();
+    
     oauthUser = null;
     userAccessToken = null;
     userWantlistIds.clear();
-    cachedCollectionData = null;
-    cachedWantlistData = null;
-    lastCollectionIds.clear();
-    lastWantlistIds.clear();
     
     localStorage.removeItem('discogs_user_token');
     localStorage.removeItem('oauth_user');
@@ -3435,6 +3508,7 @@ async function showUserCollection() {
             // Update cache and IDs
             cachedCollectionData = updatedCollection;
             lastCollectionIds = currentCollectionIds;
+            saveCollectionCache();
             
             // Display updated data
             allData = updatedCollection;
@@ -3528,6 +3602,7 @@ async function showUserCollection() {
             // Cache the enriched data and save IDs
             cachedCollectionData = collectionReleases;
             lastCollectionIds = currentCollectionIds;
+            saveCollectionCache();
             
             // Display in table
             allData = collectionReleases;
@@ -3643,6 +3718,7 @@ async function showUserWantlist() {
             // Update cache and IDs
             cachedWantlistData = updatedWantlist;
             lastWantlistIds = currentWantlistIds;
+            saveWantlistCache();
             
             // Display updated data
             allData = updatedWantlist;
@@ -3740,6 +3816,7 @@ async function showUserWantlist() {
             // Cache the enriched data and save IDs
             cachedWantlistData = wantlistReleases;
             lastWantlistIds = currentWantlistIds;
+            saveWantlistCache();
             
             // Display in table
             allData = wantlistReleases;
@@ -3784,10 +3861,13 @@ async function toggleWantlist(releaseId, buttonElement) {
                     if (cachedCollectionData) {
                         const item = cachedCollectionData.find(r => r.id === releaseId);
                         if (item) item.inWantlist = false;
+                        saveCollectionCache();
                     }
                     if (cachedWantlistData) {
                         // Remove from cached wantlist
                         cachedWantlistData = cachedWantlistData.filter(r => r.id !== releaseId);
+                        lastWantlistIds.delete(releaseId);
+                        saveWantlistCache();
                     }
                     
                     if (buttonElement) {
@@ -3819,7 +3899,10 @@ async function toggleWantlist(releaseId, buttonElement) {
                 // Update cached data
                 if (cachedCollectionData) {
                     const item = cachedCollectionData.find(r => r.id === releaseId);
-                    if (item) item.inWantlist = true;
+                    if (item) {
+                        item.inWantlist = true;
+                        saveCollectionCache();
+                    }
                 }
                 
                 if (buttonElement) {
