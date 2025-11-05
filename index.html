@@ -175,6 +175,23 @@ body::before {
   gap: 8px;
 }
 
+/* Disable hover animations/effects inside navbar */
+.navbar * {
+  transition: none !important;
+}
+.navbar a:hover,
+.navbar .navbar-brand:hover,
+.navbar .brand-link:hover,
+.navbar .profile-icon:hover,
+.navbar .settings-icon:hover,
+.navbar .btn:hover {
+  opacity: 1 !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  transform: none !important;
+  background-color: inherit !important;
+}
+
 .powered-by {
   opacity: 0.8;
   font-size: 12px;
