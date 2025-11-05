@@ -2784,7 +2784,8 @@ function loadAllSellersData() {
     
     if (allData.length > 0) {
         hasSearched = true;
-        displayResults(allData, false);
+        const processingActive = isProcessingActive();
+        displayResults(allData, processingActive);
     } else {
         const tbody = document.getElementById('releases-table-body');
         tbody.innerHTML = '<tr><td class="no-results" colspan="14"><p>No releases yet. Add sellers and they will appear here.</p></td></tr>';
