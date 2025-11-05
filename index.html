@@ -192,6 +192,11 @@ body::before {
   background-color: inherit !important;
 }
 
+/* Active state colors the icon itself (no rectangle) */
+.navbar .settings-icon.active i {
+  color: var(--accent-color) !important;
+}
+
 .powered-by {
   opacity: 0.8;
   font-size: 12px;
@@ -1312,7 +1317,7 @@ footer a:hover {
                             <i class="bi bi-collection"></i>
                         </span>
                         <span id="wantlistIcon" class="settings-icon" onclick="showUserWantlist()" style="display: none;" title="My Wantlist">
-                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-eye"></i>
                         </span>
                         <span class="profile-icon" onclick="openProfile()">
                             <i class="bi bi-person-circle"></i>
@@ -3109,6 +3114,7 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
 
 async function loadAllSellersData() {
     currentView = 'sellers';
+    updateBrandActiveState();
     
     // Show sellers panel
     const sellersPanel = document.getElementById('sellersPanel');
@@ -3243,6 +3249,7 @@ function updateOAuthUI() {
         // Show collection and wantlist icons
         if (collectionIcon) collectionIcon.style.display = 'inline-block';
         if (wantlistIcon) wantlistIcon.style.display = 'inline-block';
+        updateBrandActiveState();
         
         // Update profile modal
         if (tokenLoginSection) tokenLoginSection.style.display = 'none';
@@ -3252,10 +3259,24 @@ function updateOAuthUI() {
         // Hide collection and wantlist icons
         if (collectionIcon) collectionIcon.style.display = 'none';
         if (wantlistIcon) wantlistIcon.style.display = 'none';
+        updateBrandActiveState();
         
         // Update profile modal
         if (tokenLoginSection) tokenLoginSection.style.display = 'block';
         if (tokenLoggedInSection) tokenLoggedInSection.style.display = 'none';
+    }
+}
+
+// Reflect currentView in brand icons
+function updateBrandActiveState() {
+    const collectionIcon = document.getElementById('collectionIcon');
+    const wantlistIcon = document.getElementById('wantlistIcon');
+    if (collectionIcon) collectionIcon.classList.remove('active');
+    if (wantlistIcon) wantlistIcon.classList.remove('active');
+    if (currentView === 'collection' && collectionIcon) {
+        collectionIcon.classList.add('active');
+    } else if (currentView === 'wantlist' && wantlistIcon) {
+        wantlistIcon.classList.add('active');
     }
 }
 
@@ -3492,6 +3513,7 @@ async function showUserCollection() {
     }
     
     currentView = 'collection';
+    updateBrandActiveState();
     
     // Hide sellers panel
     const sellersPanel = document.getElementById('sellersPanel');
@@ -3699,6 +3721,7 @@ async function showUserWantlist() {
     }
     
     currentView = 'wantlist';
+    updateBrandActiveState();
     
     // Hide sellers panel
     const sellersPanel = document.getElementById('sellersPanel');
@@ -3946,7 +3969,7 @@ async function toggleWantlist(releaseId, buttonElement) {
                     }
                     
                     if (buttonElement) {
-                        buttonElement.innerHTML = '<i class="bi bi-heart" style="color: #fff;"></i>';
+                        buttonElement.innerHTML = '<i class="bi bi-eye" style="color: #fff;"></i>';
                         buttonElement.onclick = () => toggleWantlist(releaseId, buttonElement);
                     }
                     
@@ -3981,7 +4004,7 @@ async function toggleWantlist(releaseId, buttonElement) {
                 }
                 
                 if (buttonElement) {
-                    buttonElement.innerHTML = '<i class="bi bi-heart-fill" style="color: var(--accent-color);"></i>';
+                    buttonElement.innerHTML = '<i class="bi bi-eye-fill" style="color: var(--accent-color);"></i>';
                     buttonElement.onclick = () => toggleWantlist(releaseId, buttonElement);
                 }
             } else {
@@ -5322,8 +5345,8 @@ function updateExistingRowOld_DEPRECATED(row, release) {
         // Actions (only in sellers and wantlist views)
         if (columnMap.actions !== undefined && cells[columnMap.actions]) {
             const heartIcon = release.inWantlist 
-                ? '<i class="bi bi-heart-fill" style="color: var(--accent-color);"></i>'
-                : '<i class="bi bi-heart" style="color: #fff;"></i>';
+                ? '<i class="bi bi-eye-fill" style="color: var(--accent-color);"></i>'
+                : '<i class="bi bi-eye" style="color: #fff;"></i>';
             const titleText = release.inWantlist ? 'Remove from Wantlist' : 'Add to Wantlist';
             cells[columnMap.actions].innerHTML = `
                 <button class="wantlist-heart-btn" onclick="toggleWantlist(${release.id}, this)" title="${titleText}">
@@ -5667,8 +5690,8 @@ function renderRow(row, release) {
         // Actions column for sellers and wantlist views (before videos)
         if (currentView === 'sellers' || currentView === 'wantlist') {
             const heartIcon = release.inWantlist 
-                ? '<i class="bi bi-heart-fill" style="color: var(--accent-color);"></i>'
-                : '<i class="bi bi-heart" style="color: #fff;"></i>';
+                ? '<i class="bi bi-eye-fill" style="color: var(--accent-color);"></i>'
+                : '<i class="bi bi-eye" style="color: #fff;"></i>';
             const titleText = release.inWantlist ? 'Remove from Wantlist' : 'Add to Wantlist';
             
             row.innerHTML += `
