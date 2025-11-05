@@ -206,6 +206,19 @@ body.dark-mode .sun-icon {
   display: inline;
 }
 
+/* Profile Icon */
+.profile-icon {
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: var(--text-color);
+  margin-left: 16px;
+  transition: transform 0.3s;
+}
+
+.profile-icon:hover {
+  transform: scale(1.1);
+}
+
 /* Settings Icon */
 .settings-icon {
   cursor: pointer;
@@ -1129,6 +1142,9 @@ footer a:hover {
                             <input type="text" id="navSearchInput" class="form-control form-control-sm" placeholder="Search..." style="padding-right: 28px;">
                             <i class="bi bi-search" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); opacity: 0.6;"></i>
                         </div>
+                        <span class="profile-icon" onclick="openProfile()">
+                            <i class="bi bi-person-circle"></i>
+                        </span>
                         <span class="settings-icon" onclick="openSettings()">
                             <i class="bi bi-gear"></i>
                         </span>
@@ -1247,6 +1263,46 @@ footer a:hover {
 
             <div class="pagination-container">
                 <ul class="pagination" id="pagination" style="display: none;"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal fade" id="profileModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Profile & Data Management</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-4">Export your tracked sellers data and settings, or import them from a backup file.</p>
+                    
+                    <div class="mb-4">
+                        <h6 class="mb-3">Export Data</h6>
+                        <p class="text-muted small mb-3">Download all your data including tracked sellers, releases, inventory, and settings as a JSON file.</p>
+                        <button type="button" class="btn btn-brand w-100" onclick="exportData()">
+                            <i class="bi bi-download"></i> Export All Data
+                        </button>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div>
+                        <h6 class="mb-3">Import Data</h6>
+                        <p class="text-muted small mb-3">Import data from a previously exported JSON file. This will replace your current data.</p>
+                        <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="handleImportFile(event)">
+                        <button type="button" class="btn btn-brand w-100" onclick="document.getElementById('importFileInput').click()">
+                            <i class="bi bi-upload"></i> Import Data
+                        </button>
+                        <div class="alert alert-warning small mt-3 mb-0" role="alert">
+                            <i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> Importing will replace all existing data. Make sure to export your current data first if you want to keep it.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1595,6 +1651,164 @@ function saveSettings() {
     modal.hide();
     
     alert('Settings saved successfully!');
+}
+
+// ==================== PROFILE & DATA MANAGEMENT ====================
+function openProfile() {
+    const modal = new bootstrap.Modal(document.getElementById('profileModal'));
+    modal.show();
+}
+
+async function exportData() {
+    try {
+        // Get all seller data from IndexedDB
+        const db = await getSellerDB();
+        const sellersData = await new Promise((resolve, reject) => {
+            const tx = db.transaction(SELLER_STORE, 'readonly');
+            const store = tx.objectStore(SELLER_STORE);
+            const request = store.getAll();
+            
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error);
+        });
+        
+        // Get seller metadata from localStorage
+        const metadataStr = localStorage.getItem(SELLER_METADATA_KEY);
+        const metadata = metadataStr ? JSON.parse(metadataStr) : [];
+        
+        // Get settings
+        const settings = {
+            consumerKey: localStorage.getItem('discogs_consumer_key') || '',
+            consumerSecret: localStorage.getItem('discogs_consumer_secret') || '',
+            darkModeEnabled: localStorage.getItem('darkModeEnabled') || 'false'
+        };
+        
+        // Combine all data
+        const dataToExport = {
+            version: '1.0',
+            exportDate: new Date().toISOString(),
+            sellers: sellersData,
+            metadata: metadata,
+            settings: settings
+        };
+        
+        // Create download
+        const dataStr = JSON.stringify(dataToExport, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `discogs-trackr-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        alert('Data exported successfully!');
+    } catch (error) {
+        console.error('Export failed:', error);
+        alert('Failed to export data: ' + error.message);
+    }
+}
+
+async function handleImportFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!confirm('This will replace all your current data. Are you sure you want to continue?')) {
+        event.target.value = ''; // Reset file input
+        return;
+    }
+    
+    try {
+        const text = await file.text();
+        const importData = JSON.parse(text);
+        
+        // Validate import data structure
+        if (!importData.version || !importData.sellers || !importData.metadata || !importData.settings) {
+            throw new Error('Invalid backup file format');
+        }
+        
+        // Import sellers data to IndexedDB
+        const db = await getSellerDB();
+        
+        // First, clear existing data
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(SELLER_STORE, 'readwrite');
+            const store = tx.objectStore(SELLER_STORE);
+            const request = store.clear();
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+            tx.onerror = () => reject(tx.error);
+        });
+        
+        // Then, add imported sellers
+        if (importData.sellers && importData.sellers.length > 0) {
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(SELLER_STORE, 'readwrite');
+                const store = tx.objectStore(SELLER_STORE);
+                
+                const promises = importData.sellers.map(seller => {
+                    return new Promise((resolveItem, rejectItem) => {
+                        const request = store.put({
+                            username: seller.username,
+                            inventory: seller.inventory || [],
+                            releases: seller.releases || []
+                        });
+                        request.onsuccess = () => resolveItem();
+                        request.onerror = () => rejectItem(request.error);
+                    });
+                });
+                
+                Promise.all(promises).then(() => {
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                }).catch(reject);
+            });
+        }
+        
+        // Import metadata to localStorage
+        if (importData.metadata && Array.isArray(importData.metadata)) {
+            localStorage.setItem(SELLER_METADATA_KEY, JSON.stringify(importData.metadata));
+        }
+        
+        // Import settings
+        if (importData.settings) {
+            if (importData.settings.consumerKey) {
+                localStorage.setItem('discogs_consumer_key', importData.settings.consumerKey);
+            }
+            if (importData.settings.consumerSecret) {
+                localStorage.setItem('discogs_consumer_secret', importData.settings.consumerSecret);
+            }
+            if (importData.settings.darkModeEnabled !== undefined) {
+                localStorage.setItem('darkModeEnabled', importData.settings.darkModeEnabled);
+                // Apply dark mode if needed
+                if (importData.settings.darkModeEnabled === 'true') {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+            }
+        }
+        
+        // Reload tracked sellers
+        await loadTrackedSellers();
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('profileModal'));
+        modal.hide();
+        
+        // Reset file input
+        event.target.value = '';
+        
+        alert('Data imported successfully! Your page will refresh to show the imported data.');
+        // Optionally reload the page to ensure everything is synced
+        window.location.reload();
+    } catch (error) {
+        console.error('Import failed:', error);
+        alert('Failed to import data: ' + error.message);
+        event.target.value = ''; // Reset file input
+    }
 }
 
 // ==================== SELLER MANAGEMENT ====================
