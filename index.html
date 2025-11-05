@@ -3901,8 +3901,47 @@ function renderPagination() {
     pagination.appendChild(nextLi);
 }
 
+function stopAllVideos() {
+    // Stop all YouTube videos by sending stop command to all iframes
+    const youtubeIframes = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
+    youtubeIframes.forEach(iframe => {
+        try {
+            // Send stop command via postMessage to YouTube iframe
+            // YouTube iframes with enablejsapi=1 accept commands via postMessage
+            iframe.contentWindow.postMessage('{"event":"command","func":"stopVideo","args":""}', 'https://www.youtube.com');
+        } catch (e) {
+            // If postMessage fails, try alternative approach
+            try {
+                // Try pausing by setting src to empty and restoring (forces reload)
+                const currentSrc = iframe.src;
+                if (currentSrc.includes('youtube.com/embed')) {
+                    // Reload the iframe to stop playback
+                    iframe.src = currentSrc.split('&autoplay=1').join('').split('?autoplay=1').join('?');
+                }
+            } catch (e2) {
+                console.warn('Error stopping YouTube video:', e2);
+            }
+        }
+    });
+    
+    // Also stop any YouTube player instances if they exist
+    if (youtubePlayerInstances && typeof youtubePlayerInstances === 'object') {
+        Object.values(youtubePlayerInstances).forEach(player => {
+            try {
+                if (player && typeof player.stopVideo === 'function') {
+                    player.stopVideo();
+                }
+            } catch (e) {
+                console.warn('Error stopping YouTube player:', e);
+            }
+        });
+    }
+}
+
 function changePage(page) {
     if (page < 1 || page > totalPages) return;
+    // Stop all video playback before changing page
+    stopAllVideos();
     currentPage = page;
     renderTable();
     renderPagination();
