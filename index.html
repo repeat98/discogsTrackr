@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trackr</title>
     
+    <!-- Favicon / App Icons -->
+    <!-- Apple Touch Icon -->
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="img/apple-touch-icon.png"
+    />
+    <!-- Standard Favicon (ICO) -->
+    <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon" />
+    <!-- PNG Favicons for Different Sizes -->
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="img/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="img/favicon-16x16.png"
+    />
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="img/site.webmanifest" />
+    
     <!-- Open Graph / Social Media Meta Tags -->
     <meta property="og:title" content="Trackr">
     <meta property="og:description" content="Scan discogs sellers and discover what else they have available. Perfect for when you're ordering a record from a specific dealer - check out their other great releases and save on shipping costs.">
@@ -1017,6 +1042,12 @@ footer a:hover {
   opacity: 0.7 !important;
 }
 
+/* Make form-text readable */
+.form-text {
+  color: var(--text-color) !important;
+  opacity: 0.8 !important;
+}
+
 /* Brand style for Add Seller button (without changing HTML) */
 .sellers-header .btn.btn-outline-primary,
 .sellers-header .btn.btn-sm.btn-outline-primary {
@@ -1037,6 +1068,12 @@ footer a:hover {
   background-color: var(--accent-color) !important;
   border-color: var(--accent-color) !important;
   color: #000 !important;
+}
+.btn-brand:hover {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000 !important;
+  opacity: 0.9;
 }
 .brand-link {
   color: var(--accent-color) !important;
@@ -1174,10 +1211,10 @@ footer a:hover {
                     </h5>
                     <div class="chips" id="selectedChips"></div>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-primary" onclick="openAddSellerModal()">
+                        <button class="btn btn-sm btn-brand" onclick="openAddSellerModal()">
                             <i class="bi bi-plus-circle"></i> Add Seller
                         </button>
-                        <button class="btn btn-sm btn-outline-primary" onclick="updateAllSellers()">
+                        <button class="btn btn-sm btn-brand" onclick="updateAllSellers()">
                             <i class="bi bi-arrow-repeat"></i> Update All
                         </button>
                         <button class="btn btn-sm btn-outline-secondary" onclick="toggleSellersPanel()" id="toggleSellersBtn">
@@ -1259,7 +1296,7 @@ footer a:hover {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="addSellerFromModal()">Add Seller</button>
+                    <button type="button" class="btn btn-brand" onclick="addSellerFromModal()">Add Seller</button>
                 </div>
             </div>
         </div>
