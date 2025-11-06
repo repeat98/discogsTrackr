@@ -621,22 +621,18 @@ body.dark-mode .sun-icon {
 /* -----------------------
    TABLE STYLES
 ------------------------- */
+/* Table & Pagination */
 .table-container {
   border-radius: 0;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   background: var(--bg-color);
   transition: background-color var(--transition-speed);
-  max-width: 100%;
 }
-
 .table-container table.table {
   border-collapse: separate !important;
   border-spacing: 0 8px !important;
   background: transparent !important;
-  width: 100%;
 }
-
 .table-container thead tr th {
   background-color: var(--table-header-bg) !important;
   color: var(--table-header-text) !important;
@@ -645,35 +641,28 @@ body.dark-mode .sun-icon {
   opacity: 0.85;
   font-weight: normal;
   font-size: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  position: relative;
-  white-space: nowrap; /* keep headers on a single line */
 }
-
 body.dark-mode .table-container thead tr th {
   color: #cccccc !important;
 }
-
 .table-container tbody tr {
   background-color: var(--card-bg) !important;
   border: none;
   transition: background-color var(--transition-speed);
 }
-
 body.dark-mode .table-container tbody tr {
   background-color: #2D2D2D !important;
 }
-
 .table-container tbody tr td {
   background-color: transparent !important;
   vertical-align: middle;
   font-size: 12px;
   padding: 16px;
   border: none;
-  color: var(--text-color);
 }
-
+body.dark-mode .table-container tbody tr td {
+  color: #ffffff;
+}
 .table-container tbody tr:hover {
   background-color: inherit !important;
 }
