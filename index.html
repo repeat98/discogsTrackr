@@ -3423,13 +3423,26 @@ async function makeAuthenticatedRequest(url) {
     if (!userAccessToken) {
         throw new Error('Not authenticated. Please log in first.');
     }
-    
-    const response = await fetch(url, {
+
+	// Optional proxy to work around Discogs CORS (set `discogs_proxy_url` in localStorage)
+	const proxyBase = localStorage.getItem('discogs_proxy_url') || '';
+	const targetUrl = proxyBase ? `${proxyBase}?url=${encodeURIComponent(url)}` : url;
+
+	const useProxy = Boolean(proxyBase);
+	const headers = useProxy
+		? {
+			// Send auth to proxy, which forwards to Discogs
+			'X-Forward-Authorization': `Discogs token=${userAccessToken}`,
+			'X-Forward-User-Agent': 'DiscogsTrackr/1.0'
+		}
+		: {
+			'Authorization': `Discogs token=${userAccessToken}`,
+			'User-Agent': 'DiscogsTrackr/1.0'
+		};
+
+	const response = await fetch(targetUrl, {
         method: 'GET',
-        headers: {
-            'Authorization': `Discogs token=${userAccessToken}`,
-            'User-Agent': 'DiscogsTrackr/1.0'
-        }
+		headers
     });
     
     if (!response.ok) {
@@ -3448,7 +3461,7 @@ async function fetchUserWantlistIds() {
     try {
         const username = oauthUser.username;
         // Fetch first page to get total
-        const firstPageUrl = `https://api.discogs.com/users/${username}/wants?per_page=100&page=1`;
+		const firstPageUrl = `https://api.discogs.com/users/${username}/wants?per_page=100&page=1`;
         const firstPage = await makeAuthenticatedRequest(firstPageUrl);
         
         userWantlistIds.clear();
@@ -3940,16 +3953,27 @@ async function toggleWantlist(releaseId, buttonElement) {
     try {
         const username = oauthUser.username;
         const wantlistUrl = `https://api.discogs.com/users/${username}/wants/${releaseId}`;
-        
-        if (isInWantlist) {
-            // Remove from wantlist
-            const response = await fetch(wantlistUrl, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Discogs token=${userAccessToken}`,
-                    'User-Agent': 'DiscogsTrackr/1.0'
-                }
-            });
+
+		// Optional proxy to work around Discogs CORS (set `discogs_proxy_url` in localStorage)
+		const proxyBase = localStorage.getItem('discogs_proxy_url') || '';
+		const useProxy = Boolean(proxyBase);
+		const targetUrl = useProxy ? `${proxyBase}?url=${encodeURIComponent(wantlistUrl)}` : wantlistUrl;
+		const baseHeaders = useProxy
+			? {
+				'X-Forward-Authorization': `Discogs token=${userAccessToken}`,
+				'X-Forward-User-Agent': 'DiscogsTrackr/1.0'
+			}
+			: {
+				'Authorization': `Discogs token=${userAccessToken}`,
+				'User-Agent': 'DiscogsTrackr/1.0'
+			};
+
+		if (isInWantlist) {
+			// Remove from wantlist
+			const response = await fetch(targetUrl, {
+				method: 'DELETE',
+				headers: baseHeaders
+			});
             
                 if (response.status === 204) {
                     // Successfully removed
@@ -3980,15 +4004,12 @@ async function toggleWantlist(releaseId, buttonElement) {
                 } else {
                     throw new Error(`Failed to remove from wantlist: ${response.status}`);
                 }
-        } else {
-            // Add to wantlist
-            const response = await fetch(wantlistUrl, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Discogs token=${userAccessToken}`,
-                    'User-Agent': 'DiscogsTrackr/1.0'
-                }
-            });
+		} else {
+			// Add to wantlist
+			const response = await fetch(targetUrl, {
+				method: 'PUT',
+				headers: baseHeaders
+			});
             
             if (response.status === 201 || response.status === 204) {
                 // Successfully added
@@ -4060,13 +4081,23 @@ async function makeDiscogsRequest(url) {
             await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
         }
         
-        const fullUrl = `${url}${url.includes('?') ? '&' : '?'}key=${consumerKey}&secret=${consumerSecret}`;
-        const response = await fetch(fullUrl, {
-            headers: {
-                'User-Agent': 'DiscogsSellerApp/1.0',
-                'Accept': 'application/json'
-            }
-        });
+		// Optional proxy to work around Discogs CORS (set `discogs_proxy_url` in localStorage)
+		const proxyBase = localStorage.getItem('discogs_proxy_url') || '';
+		const useProxy = Boolean(proxyBase);
+		const targetUrl = useProxy ? `${proxyBase}?url=${encodeURIComponent(url)}` : `${url}${url.includes('?') ? '&' : '?'}key=${consumerKey}&secret=${consumerSecret}`;
+		const headers = useProxy
+			? {
+				// Send credentials to proxy, which forwards to Discogs
+				'X-Forward-Discogs-Key': consumerKey,
+				'X-Forward-Discogs-Secret': consumerSecret,
+				'X-Forward-User-Agent': 'DiscogsSellerApp/1.0',
+				'Accept': 'application/json'
+			}
+			: {
+				'User-Agent': 'DiscogsSellerApp/1.0',
+				'Accept': 'application/json'
+			};
+		const response = await fetch(targetUrl, { headers });
         lastRequestTime = Date.now();
         requestCount++;
         
