@@ -1379,6 +1379,10 @@ footer a:hover {
                             <label for="price_range" class="filter-label">Price range</label>
                             <input type="text" id="price_range" name="price_range" class="filter-input" placeholder="e.g. 5-25">
                         </div>
+                        <div class="filter-group">
+                            <label for="want_range" class="filter-label">Want range</label>
+                            <input type="text" id="want_range" name="want_range" class="filter-input" placeholder="e.g. 10-100">
+                        </div>
                     </div>
                 </form>
             </div>
@@ -1936,6 +1940,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('rating_count_range').addEventListener('input', debounce(applyFilters, 500));
     const priceRangeEl = document.getElementById('price_range');
     if (priceRangeEl) priceRangeEl.addEventListener('input', debounce(applyFilters, 500));
+    const wantRangeEl = document.getElementById('want_range');
+    if (wantRangeEl) wantRangeEl.addEventListener('input', debounce(applyFilters, 500));
     
     // Navbar search
     const navSearch = document.getElementById('navSearchInput');
@@ -4820,6 +4826,7 @@ function applyFilters(preservePage = null) {
     const ratingRange = document.getElementById('rating_range').value;
     const ratingCountRange = document.getElementById('rating_count_range').value;
     const priceRange = document.getElementById('price_range') ? document.getElementById('price_range').value : '';
+    const wantRange = document.getElementById('want_range') ? document.getElementById('want_range').value : '';
     
     let minYear = 0, maxYear = 9999;
     if (yearRange && yearRange.includes('-')) {
@@ -4847,6 +4854,13 @@ function applyFilters(preservePage = null) {
         const parts = priceRange.split('-');
         minPrice = parseFloat(parts[0]) || 0;
         maxPrice = parseFloat(parts[1]) || Infinity;
+    }
+    
+    let minWant = 0, maxWant = Infinity;
+    if (wantRange && wantRange.includes('-')) {
+        const parts = wantRange.split('-');
+        minWant = parseInt(parts[0]) || 0;
+        maxWant = parseInt(parts[1]) || Infinity;
     }
     
     filteredData = allData.filter(release => {
@@ -4915,6 +4929,11 @@ function applyFilters(preservePage = null) {
         
         const priceVal = typeof release.price === 'number' ? release.price : parseFloat(release.price) || 0;
         if (priceVal < minPrice || priceVal > maxPrice) {
+            return false;
+        }
+        
+        const wantVal = typeof release.want_count === 'number' ? release.want_count : parseInt(release.want_count) || 0;
+        if (wantVal < minWant || wantVal > maxWant) {
             return false;
         }
         
