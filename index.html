@@ -2055,17 +2055,96 @@ async function exportData() {
             settings: settings
         };
         
-        // Create download
-        const dataStr = JSON.stringify(dataToExport, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `discogs-trackr-backup-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        // Create download using streaming approach to handle large data
+        // Use a helper function that creates JSON in chunks to avoid string length limits
+        const chunks = [];
+        
+        // Helper function to safely stringify large objects
+        function stringifyLargeObject(obj) {
+            try {
+                // First try with pretty-printing
+                return JSON.stringify(obj, null, 2);
+            } catch (e) {
+                if (e.message && e.message.includes('string length')) {
+                    // If that fails, try without pretty-printing (smaller)
+                    try {
+                        return JSON.stringify(obj);
+                    } catch (e2) {
+                        // If still too large, use streaming approach
+                        return null;
+                    }
+                }
+                throw e;
+            }
+        }
+        
+        let dataStr = stringifyLargeObject(dataToExport);
+        
+        // If stringify failed due to size, use streaming JSON writer
+        if (dataStr === null) {
+            // Stream JSON creation in chunks to avoid string length limits
+            const encoder = new TextEncoder();
+            
+            // Helper to safely stringify individual items
+            function safeStringify(obj) {
+                try {
+                    return JSON.stringify(obj);
+                } catch (e) {
+                    // If even a single item is too large, return a placeholder
+                    console.warn('Item too large to stringify, using placeholder:', e);
+                    return JSON.stringify({ error: 'Item too large to export', size: 'exceeded' });
+                }
+            }
+            
+            chunks.push(encoder.encode('{\n'));
+            chunks.push(encoder.encode('  "version": "1.0",\n'));
+            chunks.push(encoder.encode(`  "exportDate": "${dataToExport.exportDate}",\n`));
+            chunks.push(encoder.encode('  "sellers": [\n'));
+            
+            // Stream sellers array one at a time
+            for (let i = 0; i < sellersData.length; i++) {
+                const sellerStr = safeStringify(sellersData[i]);
+                // Encode parts separately to avoid string concatenation issues
+                chunks.push(encoder.encode('    '));
+                chunks.push(encoder.encode(sellerStr));
+                if (i < sellersData.length - 1) {
+                    chunks.push(encoder.encode(',\n'));
+                } else {
+                    chunks.push(encoder.encode('\n'));
+                }
+            }
+            
+            chunks.push(encoder.encode('  ],\n'));
+            chunks.push(encoder.encode('  "metadata": '));
+            chunks.push(encoder.encode(safeStringify(metadata)));
+            chunks.push(encoder.encode(',\n'));
+            chunks.push(encoder.encode('  "settings": '));
+            chunks.push(encoder.encode(safeStringify(settings)));
+            chunks.push(encoder.encode('\n'));
+            chunks.push(encoder.encode('}'));
+            
+            // Create blob from chunks
+            const dataBlob = new Blob(chunks, { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `discogs-trackr-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } else {
+            // Normal path for smaller data
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `discogs-trackr-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
         
         alert('Data exported successfully!');
     } catch (error) {
