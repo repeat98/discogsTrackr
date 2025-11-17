@@ -1765,6 +1765,61 @@ function clearUserCache() {
     lastWantlistIds.clear();
 }
 
+// Normalize a Discogs inventory listing to a compact format for storage
+function normalizeListingForInventory(listing) {
+    if (!listing) return null;
+
+    // If it's already in compact form, return as-is
+    if (typeof listing.releaseId !== 'undefined') {
+        return {
+            releaseId: listing.releaseId,
+            artist: listing.artist || 'Unknown Artist',
+            title: listing.title || 'Unknown Title',
+            price: typeof listing.price === 'number' ? listing.price : parseFloat(listing.price || 0) || 0,
+            condition: listing.condition || ''
+        };
+    }
+
+    const release = listing.release || {};
+    const priceRaw = (listing.price && typeof listing.price === 'object')
+        ? listing.price.value
+        : listing.price;
+
+    const price = parseFloat(priceRaw || 0) || 0;
+    const condition =
+        listing.condition ||
+        listing.media_condition ||
+        listing.item_condition ||
+        listing.condition_grade ||
+        '';
+
+    return {
+        releaseId: release.id,
+        artist: release.artist || (release.artists && release.artists[0] && release.artists[0].name) || 'Unknown Artist',
+        title: release.title || 'Unknown Title',
+        price: price,
+        condition: condition
+    };
+}
+
+// Helper to read inventory items in either legacy (full Discogs listing)
+// or compact normalized format
+function getListingInfoFromInventory(listing) {
+    if (!listing) return null;
+
+    if (typeof listing.releaseId !== 'undefined') {
+        return {
+            releaseId: listing.releaseId,
+            artist: listing.artist || 'Unknown Artist',
+            title: listing.title || 'Unknown Title',
+            price: typeof listing.price === 'number' ? listing.price : parseFloat(listing.price || 0) || 0,
+            condition: listing.condition || ''
+        };
+    }
+
+    return normalizeListingForInventory(listing);
+}
+
 // IndexedDB configuration for larger cached payloads
 const DB_NAME = 'discogsSellerTracker';
 const DB_VERSION = 1;
@@ -1818,7 +1873,10 @@ async function saveSellerDataToDB(seller) {
         const db = await getSellerDB();
         const payload = {
             username: seller.username,
-            inventory: seller.inventory || [],
+            // Always store inventory in compact normalized form
+            inventory: Array.isArray(seller.inventory)
+                ? seller.inventory.map(normalizeListingForInventory)
+                : [],
             releases: seller.releases || []
         };
 
@@ -1902,10 +1960,64 @@ function aggressiveCleanupLocalStorage() {
     }
 }
 
+// One-time compaction of existing seller data in IndexedDB to reduce storage size
+async function compactSellerDatabaseIfNeeded() {
+    const FLAG_KEY = 'seller_db_compacted_v1';
+    if (localStorage.getItem(FLAG_KEY) === 'true') {
+        return;
+    }
+
+    try {
+        const db = await getSellerDB();
+
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(SELLER_STORE, 'readwrite');
+            const store = tx.objectStore(SELLER_STORE);
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                const sellers = request.result || [];
+
+                sellers.forEach(record => {
+                    let changed = false;
+
+                    if (Array.isArray(record.inventory) && record.inventory.length > 0) {
+                        const compactInventory = record.inventory
+                            .map(normalizeListingForInventory)
+                            .filter(item => item && item.releaseId);
+                        record.inventory = compactInventory;
+                        changed = true;
+                    }
+
+                    if (changed) {
+                        store.put(record);
+                    }
+                });
+            };
+
+            tx.oncomplete = () => {
+                try {
+                    localStorage.setItem(FLAG_KEY, 'true');
+                } catch (e) {
+                    console.warn('Could not persist compaction flag:', e);
+                }
+                resolve();
+            };
+
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.error('Failed to compact seller DB:', e);
+    }
+}
+
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
     // Clean up old job data on startup to free localStorage space
     cleanupLocalStorage();
+
+    // Compact existing IndexedDB data (runs only once per browser)
+    await compactSellerDatabaseIfNeeded();
     
     // Load user auth state
     loadOAuthState();
@@ -2194,7 +2306,10 @@ async function handleImportFile(event) {
                     return new Promise((resolveItem, rejectItem) => {
                         const request = store.put({
                             username: seller.username,
-                            inventory: seller.inventory || [],
+                            // Normalize imported inventory to compact form
+                            inventory: Array.isArray(seller.inventory)
+                                ? seller.inventory.map(normalizeListingForInventory)
+                                : [],
                             releases: seller.releases || []
                         });
                         request.onsuccess = () => resolveItem();
@@ -2273,7 +2388,10 @@ async function loadTrackedSellers() {
                             addedAt: item.addedAt || Date.now(),
                             lastUpdated: item.lastUpdated || null,
                             releases: item.releases || [],
-                            inventory: item.inventory || [],
+                            // Normalize legacy inventory if present
+                            inventory: Array.isArray(item.inventory)
+                                ? item.inventory.map(normalizeListingForInventory)
+                                : [],
                             currentJob: null
                         }));
 
@@ -2605,7 +2723,7 @@ async function fetchAndProcessSeller(username) {
     updateSellerList();
     
     try {
-        // Step 1: Fetch inventory
+        // Step 1: Fetch inventory (stored in compact normalized form)
         let allListings = [];
         updateJob(jobId, { currentStep: 'Fetching inventory...' });
         updateProgress(jobId);
@@ -2622,8 +2740,9 @@ async function fetchAndProcessSeller(username) {
                 consecutive403s = 0;
                 
                 if (listings.length === 0) break;
-                
-                allListings.push(...listings);
+
+                // Store only compact normalized listings to reduce DB size
+                allListings.push(...listings.map(normalizeListingForInventory));
                 
                 const totalPages = inventory.pagination?.pages || 1;
                 updateJob(jobId, {
@@ -2682,7 +2801,7 @@ async function fetchAndProcessSeller(username) {
             return;
         }
         
-        // Save inventory
+        // Save inventory (already compact normalized listings)
         seller.inventory = allListings;
         await saveSellerDataToDB(seller);
         
@@ -2723,7 +2842,7 @@ async function updateSellerWithDiff(username) {
     updateSellerList();
     
     try {
-        // Step 1: Fetch current inventory
+        // Step 1: Fetch current inventory (stored in compact normalized form)
         let allListings = [];
         updateJob(jobId, { currentStep: 'Fetching inventory...' });
         updateProgress(jobId);
@@ -2740,8 +2859,9 @@ async function updateSellerWithDiff(username) {
                 consecutive403s = 0;
                 
                 if (listings.length === 0) break;
-                
-                allListings.push(...listings);
+
+                // Store only compact normalized listings to reduce DB size
+                allListings.push(...listings.map(normalizeListingForInventory));
                 
                 const totalPages = inventory.pagination?.pages || 1;
                 updateJob(jobId, {
@@ -2806,16 +2926,18 @@ async function updateSellerWithDiff(username) {
         
         const uniqueReleases = {};
         for (const listing of allListings) {
-            const release = listing.release;
-            if (!release || !release.id) continue;
-            
-            const price = parseFloat(listing.price?.value || 0);
-            const cond = listing.condition || listing.media_condition || listing.item_condition || listing.condition_grade || '';
-            if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
-                uniqueReleases[release.id] = {
-                    id: release.id,
-                    artist: release.artist || 'Unknown Artist',
-                    title: release.title || 'Unknown Title',
+            const info = getListingInfoFromInventory(listing);
+            if (!info || !info.releaseId) continue;
+
+            const price = info.price || 0;
+            const cond = info.condition || '';
+            const releaseId = info.releaseId;
+
+            if (!uniqueReleases[releaseId] || (price > 0 && price < uniqueReleases[releaseId].price)) {
+                uniqueReleases[releaseId] = {
+                    id: releaseId,
+                    artist: info.artist || 'Unknown Artist',
+                    title: info.title || 'Unknown Title',
                     price: price,
                     condition: cond
                 };
@@ -2842,7 +2964,7 @@ async function updateSellerWithDiff(username) {
             }
         }
         
-        // Update inventory
+        // Update inventory (already compact normalized listings)
         seller.inventory = allListings;
         await saveSellerDataToDB(seller);
         
@@ -2888,19 +3010,21 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
     const seller = trackedSellers.find(s => s.username === username);
     if (!seller) return;
     
-    // Extract unique releases
+    // Extract unique releases from compact or legacy inventory listings
     const uniqueReleases = {};
     for (const listing of allListings) {
-        const release = listing.release;
-        if (!release || !release.id) continue;
-        
-        const price = parseFloat(listing.price?.value || 0);
-        const cond = listing.condition || listing.media_condition || listing.item_condition || listing.condition_grade || '';
-        if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
-            uniqueReleases[release.id] = {
-                id: release.id,
-                artist: release.artist || 'Unknown Artist',
-                title: release.title || 'Unknown Title',
+        const info = getListingInfoFromInventory(listing);
+        if (!info || !info.releaseId) continue;
+
+        const price = info.price || 0;
+        const cond = info.condition || '';
+        const releaseId = info.releaseId;
+
+        if (!uniqueReleases[releaseId] || (price > 0 && price < uniqueReleases[releaseId].price)) {
+            uniqueReleases[releaseId] = {
+                id: releaseId,
+                artist: info.artist || 'Unknown Artist',
+                title: info.title || 'Unknown Title',
                 price: price,
                 condition: cond
             };
@@ -4344,6 +4468,7 @@ async function fetchInventoryOnly(jobId, username) {
         const seller = trackedSellers.find(s => s.username === username);
         if (!seller) return;
         
+        // Store fetched inventory in compact normalized form
         let allListings = [];
             updateJob(jobId, { currentStep: 'Fetching inventory...' });
             updateProgress(jobId);
@@ -4361,8 +4486,9 @@ async function fetchInventoryOnly(jobId, username) {
                     consecutive403s = 0;
                     
                     if (listings.length === 0) break;
-                    
-                    allListings.push(...listings);
+
+                    // Store only compact normalized listings to reduce DB size
+                    allListings.push(...listings.map(normalizeListingForInventory));
                     
                     const totalPages = inventory.pagination?.pages || 1;
                     updateJob(jobId, {
@@ -4417,7 +4543,7 @@ async function fetchInventoryOnly(jobId, username) {
                 }
             }
             
-        // Save inventory
+        // Save inventory (already compact normalized listings)
         seller.inventory = allListings;
         await saveSellerDataToDB(seller);
         
@@ -4473,18 +4599,20 @@ async function processReleasesFromInventory(jobId, username) {
         updateJob(jobId, { currentStep: 'Analyzing inventory...' });
         updateProgress(jobId);
         
-        // Process unique releases
+        // Process unique releases (supports both legacy and compact inventory)
         const uniqueReleases = {};
         for (const listing of allListings) {
-            const release = listing.release;
-            if (!release || !release.id) continue;
-            
-            const price = parseFloat(listing.price?.value || 0);
-            if (!uniqueReleases[release.id] || (price > 0 && price < uniqueReleases[release.id].price)) {
-                uniqueReleases[release.id] = {
-                    id: release.id,
-                    artist: release.artist || 'Unknown Artist',
-                    title: release.title || 'Unknown Title',
+            const info = getListingInfoFromInventory(listing);
+            if (!info || !info.releaseId) continue;
+
+            const price = info.price || 0;
+            const releaseId = info.releaseId;
+
+            if (!uniqueReleases[releaseId] || (price > 0 && price < uniqueReleases[releaseId].price)) {
+                uniqueReleases[releaseId] = {
+                    id: releaseId,
+                    artist: info.artist || 'Unknown Artist',
+                    title: info.title || 'Unknown Title',
                     price: price
                 };
             }
