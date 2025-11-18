@@ -1549,6 +1549,43 @@ footer a:hover {
         </div>
     </div>
 
+    <!-- Seller Options Modal -->
+    <div class="modal fade" id="sellerOptionsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sellerOptionsTitle">Seller Options</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Choose which <strong>styles</strong> you want to keep for this seller. By default, all styles are included.
+                        Changes affect which releases are shown and kept after the next refresh or scan.
+                    </p>
+                    <div id="sellerStylesSection" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Styles for <span id="sellerOptionsName"></span></h6>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Select styles">
+                                <button type="button" class="btn btn-outline-secondary" onclick="selectAllSellerStyles(true)">Select All</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="selectAllSellerStyles(false)">Clear</button>
+                            </div>
+                        </div>
+                        <div id="sellerStylesContainer" class="border rounded p-2" style="max-height: 320px; overflow-y: auto;">
+                            <!-- Styles checkboxes will be injected here -->
+                        </div>
+                    </div>
+                    <div id="sellerStylesEmpty" class="alert alert-info mb-0" role="alert" style="display: none;">
+                        No styles found for this seller yet. Run a scan first, then you can filter styles here.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-brand" onclick="saveSellerOptions()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Collection Modal -->
     <div class="modal fade" id="collectionModal" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -1681,6 +1718,18 @@ let hasSearched = false;
 let currentVideoIndex = {};
 let trackedSellers = [];
 let selectedSellers = []; // Empty = all sellers
+
+// Per-seller style preferences (stored in localStorage)
+const SELLER_STYLE_PREFS_KEY = 'seller_style_preferences';
+let sellerStylePreferences = {};
+  
+function getSellerSelectedStyles(username) {
+    if (!sellerStylePreferences || !sellerStylePreferences[username]) {
+        return null; // null => default (all styles)
+    }
+    const entry = sellerStylePreferences[username];
+    return Array.isArray(entry.selectedStyles) ? entry.selectedStyles : null;
+}
 
 // OAuth State
 let oauthUser = null;
@@ -2073,6 +2122,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Load seller style preferences
+    try {
+        const prefsStr = localStorage.getItem(SELLER_STYLE_PREFS_KEY);
+        if (prefsStr) {
+            sellerStylePreferences = JSON.parse(prefsStr) || {};
+        }
+    } catch (e) {
+        console.warn('Failed to load seller style preferences:', e);
+        sellerStylePreferences = {};
+    }
+
     // Load tracked sellers and display
     await loadTrackedSellers();
     checkForStoredJob();
@@ -2155,7 +2215,16 @@ async function exportData() {
         const settings = {
             consumerKey: localStorage.getItem('discogs_consumer_key') || '',
             consumerSecret: localStorage.getItem('discogs_consumer_secret') || '',
-            darkModeEnabled: localStorage.getItem('darkModeEnabled') || 'false'
+            darkModeEnabled: localStorage.getItem('darkModeEnabled') || 'false',
+            sellerStylePreferences: (() => {
+                try {
+                    const prefsStr = localStorage.getItem(SELLER_STYLE_PREFS_KEY);
+                    return prefsStr ? JSON.parse(prefsStr) : {};
+                } catch (e) {
+                    console.warn('Failed to include seller style preferences in export:', e);
+                    return {};
+                }
+            })()
         };
         
         // Combine all data
@@ -2346,6 +2415,15 @@ async function handleImportFile(event) {
                     document.body.classList.remove('dark-mode');
                 }
             }
+            if (importData.settings.sellerStylePreferences) {
+                try {
+                    sellerStylePreferences = importData.settings.sellerStylePreferences || {};
+                    localStorage.setItem(SELLER_STYLE_PREFS_KEY, JSON.stringify(sellerStylePreferences));
+                } catch (e) {
+                    console.warn('Failed to import seller style preferences:', e);
+                    sellerStylePreferences = {};
+                }
+            }
         }
         
         // Reload tracked sellers
@@ -2525,6 +2603,9 @@ function updateSellerList() {
             <div class="seller-actions">
                 <button class="btn btn-sm btn-outline-primary" onclick="refreshSeller('${seller.username}', event)" title="Refresh">
                     <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="openSellerOptions('${seller.username}', event)" title="Options">
+                    <i class="bi bi-sliders"></i>
                 </button>
                 ${cancelBtn}
                 <button class="btn btn-sm btn-outline-danger" onclick="removeSeller('${seller.username}', event)" title="Remove">
@@ -3055,7 +3136,16 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
         
         try {
             const details = await getReleaseDetails(releaseId);
-            
+            if (!shouldKeepReleaseForSeller(username, details)) {
+                updateJob(jobId, {
+                    progress: i + 1,
+                    currentStep: `Skipping (style filter): ${i + 1} of ${releaseIds.length}`
+                });
+                updateProgress(jobId);
+                consecutiveErrors = 0;
+                continue;
+            }
+
             const ratingData = details.community?.rating || {};
             const avgRating = parseFloat(ratingData.average || 0);
             const numRatings = parseInt(ratingData.count || 0);
@@ -3193,7 +3283,16 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
         
         try {
             const details = await getReleaseDetails(releaseId);
-            
+            if (!shouldKeepReleaseForSeller(username, details)) {
+                updateJob(jobId, {
+                    progress: i + 1,
+                    currentStep: `Skipping (style filter): ${i + 1} of ${newReleaseIds.length}`
+                });
+                updateProgress(jobId);
+                consecutiveErrors = 0;
+                continue;
+            }
+
             const ratingData = details.community?.rating || {};
             const avgRating = parseFloat(ratingData.average || 0);
             const numRatings = parseInt(ratingData.count || 0);
@@ -3330,8 +3429,11 @@ async function loadAllSellersData() {
     sellersToShow.forEach(username => {
         const seller = trackedSellers.find(s => s.username === username);
         if (seller && seller.releases) {
+            // Apply per-seller style preferences
+            const filteredReleases = filterReleasesBySellerStyles(seller, seller.releases);
+
             // Add seller info to each release and mark if in wantlist
-            const releasesWithSeller = seller.releases.map(r => ({
+            const releasesWithSeller = filteredReleases.map(r => ({
                 ...r,
                 seller_username: username,
                 inWantlist: userWantlistIds.has(r.id)
@@ -3382,6 +3484,66 @@ function computeRarityCoeff(have, want) {
     return (w + 1) / (h + 1);
 }
 
+// Determine whether a release should be kept for a given seller based on style preferences
+function releaseMatchesSellerStyles(sellerUsername, release) {
+    const selected = getSellerSelectedStyles(sellerUsername);
+    if (selected === null) {
+        return true; // default: all styles allowed
+    }
+    if (selected.length === 0) return false; // user cleared everything
+
+    if (!release || !release.styles) return false;
+
+    let styles = [];
+    try {
+        styles = JSON.parse(release.styles) || [];
+    } catch (e) {
+        styles = [];
+    }
+    if (!Array.isArray(styles) || styles.length === 0) return false;
+
+    return styles.some((style) => selected.includes(style));
+}
+
+// Filter a list of releases for a seller using style preferences
+function filterReleasesBySellerStyles(seller, releases) {
+    if (!Array.isArray(releases) || releases.length === 0) return [];
+    const username = seller?.username;
+    if (!username) return releases;
+    const selected = getSellerSelectedStyles(username);
+    if (selected === null) return releases;
+    return releases.filter((release) => releaseMatchesSellerStyles(username, release));
+}
+
+function shouldKeepReleaseForSeller(username, releaseDetails) {
+    const selected = getSellerSelectedStyles(username);
+    if (selected === null) {
+        return true;
+    }
+    if (selected.length === 0) {
+        return false;
+    }
+    if (!releaseDetails) {
+        return false;
+    }
+
+    let styles = [];
+    if (Array.isArray(releaseDetails.styles) && releaseDetails.styles.length > 0) {
+        styles = releaseDetails.styles;
+    } else if (
+        releaseDetails.basic_information &&
+        Array.isArray(releaseDetails.basic_information.styles)
+    ) {
+        styles = releaseDetails.basic_information.styles;
+    }
+
+    if (!styles || styles.length === 0) {
+        return false;
+    }
+
+    return styles.some((style) => selected.includes(style));
+}
+
 function getVideoUrl(video) {
     if (!video || typeof video !== 'object') return '';
     return video.url || video.uri || video.href || '';
@@ -3406,6 +3568,161 @@ function extractYouTubeID(url) {
     const regex = /(?:youtube\.com\/.*v=|youtu\.be\/)([^"&?/\s]{11})/;
     const match = url.match(regex);
     return match ? match[1] : null;
+}
+
+// ==================== SELLER OPTIONS (STYLES) ====================
+
+function getSellerStylesFrequency(seller) {
+    const freqMap = new Map();
+    if (!seller || !Array.isArray(seller.releases)) return [];
+
+    seller.releases.forEach(release => {
+        if (!release || !release.styles) return;
+        let styles = [];
+        try {
+            styles = JSON.parse(release.styles) || [];
+        } catch (e) {
+            styles = [];
+        }
+        if (!Array.isArray(styles)) return;
+        styles.forEach(style => {
+            if (!style) return;
+            const current = freqMap.get(style) || 0;
+            freqMap.set(style, current + 1);
+        });
+    });
+
+    const entries = Array.from(freqMap.entries());
+    // Sort by frequency (desc), then alphabetically
+    entries.sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].localeCompare(b[0]);
+    });
+    return entries;
+}
+
+function openSellerOptions(username, event) {
+    if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+    }
+    const seller = trackedSellers.find(s => s.username === username);
+    const titleEl = document.getElementById('sellerOptionsTitle');
+    const nameEl = document.getElementById('sellerOptionsName');
+    const sectionEl = document.getElementById('sellerStylesSection');
+    const emptyEl = document.getElementById('sellerStylesEmpty');
+    const containerEl = document.getElementById('sellerStylesContainer');
+
+    if (!seller || !titleEl || !nameEl || !sectionEl || !emptyEl || !containerEl) {
+        return;
+    }
+
+    titleEl.textContent = `Seller Options – ${username}`;
+    nameEl.textContent = username;
+
+    // Build styles list
+    const entries = getSellerStylesFrequency(seller);
+    containerEl.innerHTML = '';
+
+    if (!entries.length) {
+        sectionEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+    } else {
+        sectionEl.style.display = 'block';
+        emptyEl.style.display = 'none';
+
+        const prefs = sellerStylePreferences[username];
+        const selected = prefs && Array.isArray(prefs.selectedStyles)
+            ? new Set(prefs.selectedStyles)
+            : null; // null => default (all selected)
+
+        entries.forEach(([style, count], index) => {
+            const id = `seller-style-${index}`;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'form-check form-check-sm';
+
+            const input = document.createElement('input');
+            input.className = 'form-check-input seller-style-checkbox';
+            input.type = 'checkbox';
+            input.id = id;
+            input.value = style;
+
+            // Default: all selected
+            if (selected === null) {
+                input.checked = true;
+            } else {
+                input.checked = selected.has(style);
+            }
+
+            const label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.htmlFor = id;
+            label.textContent = `${style} (${count})`;
+
+            wrapper.appendChild(input);
+            wrapper.appendChild(label);
+            containerEl.appendChild(wrapper);
+        });
+    }
+
+    // Store current seller username on modal element for save helper
+    const modalEl = document.getElementById('sellerOptionsModal');
+    if (modalEl) {
+        modalEl.setAttribute('data-seller-username', username);
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+}
+
+function selectAllSellerStyles(checked) {
+    const containerEl = document.getElementById('sellerStylesContainer');
+    if (!containerEl) return;
+    const inputs = containerEl.querySelectorAll('.seller-style-checkbox');
+    inputs.forEach(input => {
+        input.checked = !!checked;
+    });
+}
+
+function saveSellerOptions() {
+    const modalEl = document.getElementById('sellerOptionsModal');
+    if (!modalEl) return;
+    const username = modalEl.getAttribute('data-seller-username');
+    if (!username) return;
+
+    const containerEl = document.getElementById('sellerStylesContainer');
+    if (!containerEl) return;
+
+    const inputs = Array.from(containerEl.querySelectorAll('.seller-style-checkbox'));
+    const selectedStyles = inputs.filter(input => input.checked).map(input => input.value);
+
+    if (!sellerStylePreferences || typeof sellerStylePreferences !== 'object') {
+        sellerStylePreferences = {};
+    }
+
+    // If all styles are selected, we can remove explicit prefs and fall back to default
+    const totalStyles = inputs.length;
+    if (selectedStyles.length === 0) {
+        sellerStylePreferences[username] = { selectedStyles: [] };
+    } else if (selectedStyles.length === totalStyles) {
+        delete sellerStylePreferences[username];
+    } else {
+        sellerStylePreferences[username] = { selectedStyles };
+    }
+
+    try {
+        localStorage.setItem(SELLER_STYLE_PREFS_KEY, JSON.stringify(sellerStylePreferences));
+    } catch (e) {
+        console.warn('Failed to persist seller style preferences:', e);
+    }
+
+    // Immediately re-apply filters if we are in the sellers view
+    if (currentView === 'sellers') {
+        loadAllSellersData();
+    }
+
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) {
+        modal.hide();
+    }
 }
 
 // ==================== USER AUTHENTICATION ====================
