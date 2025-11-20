@@ -387,11 +387,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Filter change handlers (search now only in navbar)
-    document.getElementById('genre').addEventListener('change', applyFilters);
-    document.getElementById('style').addEventListener('change', applyFilters);
-    document.getElementById('artist').addEventListener('change', applyFilters);
-    document.getElementById('label').addEventListener('change', applyFilters);
+    // Load cached filter state
+    loadFilterState();
+    
+    // Initialize multi-select dropdowns
+    initMultiSelectDropdowns();
+
+    // Filter change handlers for range inputs (multi-selects handle their own changes)
     document.getElementById('year_range').addEventListener('input', debounce(applyFilters, 500));
     document.getElementById('rating_range').addEventListener('input', debounce(applyFilters, 500));
     document.getElementById('rating_count_range').addEventListener('input', debounce(applyFilters, 500));
@@ -406,6 +408,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         navSearch.addEventListener('input', debounce(() => {
             applyFilters();
         }, 250));
+    }
+
+    // Clear all filters button
+    const clearAllBtn = document.getElementById('clear-all-filters');
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', () => {
+            clearAllFilters();
+        });
     }
 
     // Mobile filter toggle
@@ -3495,12 +3505,397 @@ function displayResults(releases, isProcessing = false) {
     }
 }
 
-function populateFilterOptions(releases) {
+// ==================== MULTI-SELECT FILTER STATE ====================
+const FILTER_STATE_KEY = 'discogsTrackr_filterState';
+let multiSelectFilters = {
+    genre: [],
+    style: [],
+    artist: [],
+    label: []
+};
+
+// Load cached filter state
+function loadFilterState() {
+    try {
+        const cached = localStorage.getItem(FILTER_STATE_KEY);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            multiSelectFilters = {
+                genre: parsed.genre || [],
+                style: parsed.style || [],
+                artist: parsed.artist || [],
+                label: parsed.label || []
+            };
+        }
+    } catch (e) {
+        console.warn('Failed to load filter state:', e);
+    }
+}
+
+// Save filter state to localStorage
+function saveFilterState() {
+    try {
+        localStorage.setItem(FILTER_STATE_KEY, JSON.stringify(multiSelectFilters));
+    } catch (e) {
+        console.warn('Failed to save filter state:', e);
+    }
+}
+
+// ==================== MULTI-SELECT DROPDOWN COMPONENT ====================
+class MultiSelectDropdown {
+    constructor(selectElement, filterKey, placeholder) {
+        this.selectElement = selectElement;
+        this.filterKey = filterKey;
+        this.placeholder = placeholder;
+        this.options = [];
+        this.selectedValues = new Set(multiSelectFilters[filterKey] || []);
+        this.container = null;
+        this.trigger = null;
+        this.dropdown = null;
+        
+        this.init();
+    }
+    
+    init() {
+        if (!this.selectElement || !this.selectElement.parentNode) {
+            console.error('Select element or parent not found for', this.filterKey);
+            return;
+        }
+        
+        // Hide original select but keep it in DOM for form submission if needed
+        this.selectElement.style.display = 'none';
+        this.selectElement.style.visibility = 'hidden';
+        this.selectElement.style.position = 'absolute';
+        this.selectElement.style.opacity = '0';
+        this.selectElement.style.pointerEvents = 'none';
+        this.selectElement.style.width = '0';
+        this.selectElement.style.height = '0';
+        this.selectElement.style.margin = '0';
+        this.selectElement.style.padding = '0';
+        
+        // Create multi-select container
+        this.container = document.createElement('div');
+        this.container.className = 'multi-select-container';
+        
+        // Create trigger button
+        this.trigger = document.createElement('div');
+        this.trigger.className = 'multi-select-trigger';
+        this.trigger.tabIndex = 0;
+        this.trigger.setAttribute('role', 'button');
+        this.trigger.setAttribute('aria-haspopup', 'listbox');
+        this.updateTriggerText();
+        
+        // Create dropdown
+        this.dropdown = document.createElement('div');
+        this.dropdown.className = 'multi-select-dropdown';
+        this.dropdown.setAttribute('role', 'listbox');
+        
+        // Add to DOM - replace the select element's position
+        this.container.appendChild(this.trigger);
+        this.container.appendChild(this.dropdown);
+        
+        // Insert container right after the select element
+        const parent = this.selectElement.parentNode;
+        if (this.selectElement.nextSibling) {
+            parent.insertBefore(this.container, this.selectElement.nextSibling);
+        } else {
+            parent.appendChild(this.container);
+        }
+        
+        // Verify container is in DOM and visible
+        if (!document.body.contains(this.container)) {
+            console.error('Container not added to DOM for', this.filterKey);
+        }
+        
+        // Force visibility
+        this.container.style.display = 'block';
+        this.container.style.visibility = 'visible';
+        this.trigger.style.display = 'flex';
+        this.trigger.style.visibility = 'visible';
+        
+        // Event listeners
+        this.trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            // Close all other dropdowns before toggling this one
+            closeAllDropdowns(this);
+            this.toggle();
+        });
+        
+        this.trigger.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.toggle();
+            }
+        });
+        
+        // Store handlers for cleanup if needed
+        this.clickHandler = null;
+        this.scrollHandler = null;
+    }
+    
+    toggle() {
+        if (this.dropdown.classList.contains('open')) {
+            this.close();
+        } else {
+            this.open();
+        }
+    }
+    
+    open() {
+        // Close all other dropdowns first
+        closeAllDropdowns(this);
+        
+        // Calculate position relative to trigger
+        const triggerRect = this.trigger.getBoundingClientRect();
+        const dropdown = this.dropdown;
+        
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (triggerRect.bottom + 4) + 'px';
+        dropdown.style.left = triggerRect.left + 'px';
+        dropdown.style.width = triggerRect.width + 'px';
+        dropdown.style.maxWidth = triggerRect.width + 'px';
+        
+        this.dropdown.classList.add('open');
+        this.trigger.classList.add('open');
+        
+        // Force display
+        this.dropdown.style.display = 'block';
+        this.dropdown.style.visibility = 'visible';
+        this.dropdown.style.zIndex = '99999';
+        
+        // Add click outside handler
+        setTimeout(() => {
+            this.clickHandler = (e) => {
+                if (!this.container.contains(e.target) && !this.dropdown.contains(e.target)) {
+                    this.close();
+                }
+            };
+            document.addEventListener('click', this.clickHandler);
+            
+            // Close on scroll to prevent misalignment
+            this.scrollHandler = () => {
+                if (this.dropdown.classList.contains('open')) {
+                    this.close();
+                }
+            };
+            window.addEventListener('scroll', this.scrollHandler, true);
+        }, 0);
+    }
+    
+    close() {
+        if (!this.dropdown || !this.dropdown.classList.contains('open')) {
+            return; // Already closed
+        }
+        
+        this.dropdown.classList.remove('open');
+        this.trigger.classList.remove('open');
+        this.dropdown.style.display = 'none';
+        
+        // Remove event listeners
+        if (this.clickHandler) {
+            document.removeEventListener('click', this.clickHandler);
+            this.clickHandler = null;
+        }
+        if (this.scrollHandler) {
+            window.removeEventListener('scroll', this.scrollHandler, true);
+            this.scrollHandler = null;
+        }
+        
+        // Reset positioning
+        this.dropdown.style.position = '';
+        this.dropdown.style.top = '';
+        this.dropdown.style.left = '';
+        this.dropdown.style.width = '';
+    }
+    
+    updateTriggerText() {
+        if (!this.trigger) return;
+        
+        const count = this.selectedValues.size;
+        this.trigger.innerHTML = '';
+        
+        if (count === 0) {
+            const textNode = document.createTextNode(this.placeholder);
+            this.trigger.appendChild(textNode);
+        } else {
+            const textNode = document.createTextNode(this.placeholder + ' ');
+            const countSpan = document.createElement('span');
+            countSpan.className = 'multi-select-count';
+            countSpan.textContent = count;
+            this.trigger.appendChild(textNode);
+            this.trigger.appendChild(countSpan);
+        }
+        
+        // Ensure trigger is visible
+        if (this.trigger.style) {
+            this.trigger.style.display = 'flex';
+            this.trigger.style.visibility = 'visible';
+            this.trigger.style.opacity = '1';
+        }
+    }
+    
+    populate(counts) {
+        this.options = Array.from(counts.entries())
+            .sort((a, b) => {
+                if (b[1] !== a[1]) return b[1] - a[1];
+                return a[0].localeCompare(b[0]);
+            });
+        
+        this.render();
+    }
+    
+    render() {
+        if (!this.dropdown) return;
+        
+        this.dropdown.innerHTML = '';
+        
+        // If no options, show a message
+        if (this.options.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = 'multi-select-option';
+            emptyMsg.style.padding = '12px';
+            emptyMsg.style.textAlign = 'center';
+            emptyMsg.style.color = 'var(--text-color)';
+            emptyMsg.style.opacity = '0.7';
+            emptyMsg.textContent = 'No options available';
+            this.dropdown.appendChild(emptyMsg);
+            return;
+        }
+        
+        // Add Select All / Clear All buttons
+        const actions = document.createElement('div');
+        actions.className = 'multi-select-actions';
+        
+        const selectAllBtn = document.createElement('button');
+        selectAllBtn.textContent = 'Select All';
+        selectAllBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.selectAll();
+        });
+        
+        const clearAllBtn = document.createElement('button');
+        clearAllBtn.textContent = 'Clear All';
+        clearAllBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.clearAll();
+        });
+        
+        actions.appendChild(selectAllBtn);
+        actions.appendChild(clearAllBtn);
+        this.dropdown.appendChild(actions);
+        
+        // Add options
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'multi-select-options';
+        
+        this.options.forEach(([value, count]) => {
+            const option = document.createElement('div');
+            option.className = 'multi-select-option';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `${this.filterKey}-${value}`;
+            checkbox.value = value;
+            checkbox.checked = this.selectedValues.has(value);
+            
+            const label = document.createElement('label');
+            label.htmlFor = checkbox.id;
+            label.textContent = `${value} (${count})`;
+            
+            checkbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                if (checkbox.checked) {
+                    this.selectedValues.add(value);
+                } else {
+                    this.selectedValues.delete(value);
+                }
+                this.updateSelection();
+            });
+            
+            option.addEventListener('click', (e) => {
+                if (e.target !== checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+            
+            option.appendChild(checkbox);
+            option.appendChild(label);
+            optionsContainer.appendChild(option);
+        });
+        
+        this.dropdown.appendChild(optionsContainer);
+    }
+    
+    selectAll() {
+        this.selectedValues.clear();
+        this.options.forEach(([value]) => {
+            this.selectedValues.add(value);
+        });
+        this.render();
+        this.updateSelection();
+    }
+    
+    clearAll() {
+        this.selectedValues.clear();
+        this.render();
+        this.updateSelection();
+    }
+    
+    updateSelection() {
+        multiSelectFilters[this.filterKey] = Array.from(this.selectedValues);
+        this.updateTriggerText();
+        saveFilterState();
+        applyFilters();
+    }
+    
+    getSelectedValues() {
+        return Array.from(this.selectedValues);
+    }
+}
+
+// Initialize multi-select dropdowns
+let genreDropdown, styleDropdown, artistDropdown, labelDropdown;
+const allDropdowns = [];
+
+// Function to close all open dropdowns
+function closeAllDropdowns(excludeDropdown = null) {
+    allDropdowns.forEach(dropdown => {
+        if (dropdown !== excludeDropdown && dropdown.dropdown && dropdown.dropdown.classList.contains('open')) {
+            dropdown.close();
+        }
+    });
+}
+
+function initMultiSelectDropdowns() {
     const genreSelect = document.getElementById('genre');
     const styleSelect = document.getElementById('style');
     const artistSelect = document.getElementById('artist');
     const labelSelect = document.getElementById('label');
     
+    if (!genreSelect || !styleSelect || !artistSelect || !labelSelect) {
+        console.warn('Filter select elements not found, retrying...');
+        setTimeout(initMultiSelectDropdowns, 100);
+        return;
+    }
+    
+    try {
+        genreDropdown = new MultiSelectDropdown(genreSelect, 'genre', 'All Genres');
+        styleDropdown = new MultiSelectDropdown(styleSelect, 'style', 'All Styles');
+        artistDropdown = new MultiSelectDropdown(artistSelect, 'artist', 'All Artists');
+        labelDropdown = new MultiSelectDropdown(labelSelect, 'label', 'All Labels');
+        
+        // Store references
+        allDropdowns.push(genreDropdown, styleDropdown, artistDropdown, labelDropdown);
+        
+        console.log('Multi-select dropdowns initialized successfully');
+    } catch (error) {
+        console.error('Error initializing multi-select dropdowns:', error);
+    }
+}
+
+function populateFilterOptions(releases) {
     const genreCounts = new Map();
     const styleCounts = new Map();
     const artistCounts = new Map();
@@ -3540,42 +3935,23 @@ function populateFilterOptions(releases) {
         }
     });
     
-    function populateSelect(select, counts, currentValue) {
-        select.innerHTML = '';
-        const allOption = document.createElement('option');
-        allOption.value = '';
-        allOption.textContent = select.id === 'genre' ? 'All Genres' : 
-                              select.id === 'style' ? 'All Styles' :
-                              select.id === 'artist' ? 'All Artists' : 'All Labels';
-        select.appendChild(allOption);
-        
-        Array.from(counts.entries())
-            .sort((a, b) => {
-                if (b[1] !== a[1]) return b[1] - a[1];
-                return a[0].localeCompare(b[0]);
-            })
-            .forEach(([value, count]) => {
-                const option = document.createElement('option');
-                option.value = value;
-                option.textContent = `${value} (${count})`;
-                if (value === currentValue) option.selected = true;
-                select.appendChild(option);
-            });
-    }
-    
-    populateSelect(genreSelect, genreCounts, genreSelect.value);
-    populateSelect(styleSelect, styleCounts, styleSelect.value);
-    populateSelect(artistSelect, artistCounts, artistSelect.value);
-    populateSelect(labelSelect, labelCounts, labelSelect.value);
+    // Populate multi-select dropdowns
+    if (genreDropdown) genreDropdown.populate(genreCounts);
+    if (styleDropdown) styleDropdown.populate(styleCounts);
+    if (artistDropdown) artistDropdown.populate(artistCounts);
+    if (labelDropdown) labelDropdown.populate(labelCounts);
 }
 
 function applyFilters(preservePage = null) {
     // Read from navbar search; fallback to legacy input if present
     const q = ((document.getElementById('navSearchInput')?.value) || (document.getElementById('text_search')?.value) || '').toLowerCase().trim();
-    const selectedGenre = document.getElementById('genre').value;
-    const selectedStyle = document.getElementById('style').value;
-    const selectedArtist = document.getElementById('artist').value;
-    const selectedLabel = document.getElementById('label').value;
+    
+    // Get multi-select values (OR logic)
+    const selectedGenres = multiSelectFilters.genre || [];
+    const selectedStyles = multiSelectFilters.style || [];
+    const selectedArtists = multiSelectFilters.artist || [];
+    const selectedLabels = multiSelectFilters.label || [];
+    
     const yearRange = document.getElementById('year_range').value;
     const ratingRange = document.getElementById('rating_range').value;
     const ratingCountRange = document.getElementById('rating_count_range').value;
@@ -3637,36 +4013,44 @@ function applyFilters(preservePage = null) {
             if (!hay.includes(q)) return false;
         }
         
-        if (selectedGenre) {
+        // OR logic for genres: if any genres are selected, release must match at least one
+        if (selectedGenres.length > 0) {
             let genres = [];
             if (release.genres) {
                 try {
                     genres = JSON.parse(release.genres);
                 } catch (e) {}
             }
-            if (!genres.includes(selectedGenre)) return false;
+            const hasMatch = selectedGenres.some(selectedGenre => genres.includes(selectedGenre));
+            if (!hasMatch) return false;
         }
         
-        if (selectedStyle) {
+        // OR logic for styles: if any styles are selected, release must match at least one
+        if (selectedStyles.length > 0) {
             let styles = [];
             if (release.styles) {
                 try {
                     styles = JSON.parse(release.styles);
                 } catch (e) {}
             }
-            if (!styles.includes(selectedStyle)) return false;
+            const hasMatch = selectedStyles.some(selectedStyle => styles.includes(selectedStyle));
+            if (!hasMatch) return false;
         }
         
-        if (selectedArtist) {
+        // OR logic for artists: if any artists are selected, release must match at least one
+        if (selectedArtists.length > 0) {
             if (!release.artist) return false;
             const artists = release.artist.split(/[,&\/]/).map(a => a.trim());
-            if (!artists.includes(selectedArtist)) return false;
+            const hasMatch = selectedArtists.some(selectedArtist => artists.includes(selectedArtist));
+            if (!hasMatch) return false;
         }
         
-        if (selectedLabel) {
+        // OR logic for labels: if any labels are selected, release must match at least one
+        if (selectedLabels.length > 0) {
             if (!release.label) return false;
             const labels = release.label.split(/[,&\/]/).map(l => l.trim());
-            if (!labels.includes(selectedLabel)) return false;
+            const hasMatch = selectedLabels.some(selectedLabel => labels.includes(selectedLabel));
+            if (!hasMatch) return false;
         }
         
         if (release.year && (release.year < minYear || release.year > maxYear)) {
@@ -3706,6 +4090,55 @@ function applyFilters(preservePage = null) {
     
     renderTable();
     renderPagination();
+}
+
+function clearAllFilters() {
+    // Clear multi-select filters
+    multiSelectFilters = {
+        genre: [],
+        style: [],
+        artist: [],
+        label: []
+    };
+    
+    // Clear dropdown selections
+    if (genreDropdown) {
+        genreDropdown.selectedValues.clear();
+        genreDropdown.updateTriggerText();
+        genreDropdown.render();
+    }
+    if (styleDropdown) {
+        styleDropdown.selectedValues.clear();
+        styleDropdown.updateTriggerText();
+        styleDropdown.render();
+    }
+    if (artistDropdown) {
+        artistDropdown.selectedValues.clear();
+        artistDropdown.updateTriggerText();
+        artistDropdown.render();
+    }
+    if (labelDropdown) {
+        labelDropdown.selectedValues.clear();
+        labelDropdown.updateTriggerText();
+        labelDropdown.render();
+    }
+    
+    // Clear range inputs
+    document.getElementById('year_range').value = '';
+    document.getElementById('rating_range').value = '';
+    document.getElementById('rating_count_range').value = '';
+    const priceRangeEl = document.getElementById('price_range');
+    if (priceRangeEl) priceRangeEl.value = '';
+    const wantRangeEl = document.getElementById('want_range');
+    if (wantRangeEl) wantRangeEl.value = '';
+    
+    // Clear navbar search
+    const navSearch = document.getElementById('navSearchInput');
+    if (navSearch) navSearch.value = '';
+    
+    // Save state and apply filters
+    saveFilterState();
+    applyFilters();
 }
 
 function sortData() {

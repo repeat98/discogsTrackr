@@ -420,7 +420,7 @@ body.dark-mode .sun-icon {
 
 .FilterContainer {
   border-radius: 0;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: row;
   align-items: flex-end;
@@ -428,6 +428,7 @@ body.dark-mode .sun-icon {
   transition: background-color var(--transition-speed);
   flex-wrap: nowrap;
   overflow-x: auto;
+  overflow-y: visible;
 }
 
 .filter-group {
@@ -436,6 +437,8 @@ body.dark-mode .sun-icon {
   min-width: 120px;
   display: flex;
   flex-direction: column;
+  overflow: visible;
+  z-index: 1;
 }
 
 .filter-label {
@@ -1208,3 +1211,154 @@ footer a:hover {
 }
 
 /* (Removed CSS-grid column remap in favor of JS column order to avoid table header glitches) */
+
+/* -----------------------
+   MULTI-SELECT DROPDOWN
+------------------------- */
+.multi-select-container {
+  position: relative;
+  width: 100%;
+  display: block !important;
+  visibility: visible !important;
+  flex: 1;
+  min-width: 120px;
+  z-index: 1;
+}
+
+.multi-select-trigger {
+  width: 100%;
+  background: var(--input-bg) !important;
+  box-shadow: 0px 1px 2px rgba(10, 12, 18, 0.05);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-color) !important;
+  padding: 8px 30px 8px 10px;
+  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+  min-height: 36px;
+  height: 36px;
+  cursor: pointer;
+  text-align: left;
+  display: flex !important;
+  align-items: center;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  visibility: visible !important;
+  opacity: 1 !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.multi-select-trigger::after {
+  content: '\F282';
+  font-family: 'bootstrap-icons';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: transform 0.2s;
+}
+
+.multi-select-trigger.open::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.multi-select-trigger:focus {
+  outline: none;
+  border-color: var(--input-focus);
+  box-shadow: 0 0 5px var(--input-focus);
+}
+
+.multi-select-dropdown {
+  position: fixed;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 99999 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: none;
+  visibility: visible;
+  min-width: 200px;
+}
+
+.multi-select-dropdown.open {
+  display: block;
+}
+
+.multi-select-actions {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--input-bg);
+}
+
+.multi-select-actions button {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 3px;
+  color: #000;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.multi-select-actions button:hover {
+  opacity: 0.8;
+}
+
+.multi-select-options {
+  padding: 4px 0;
+}
+
+.multi-select-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-color);
+  transition: background-color 0.2s;
+}
+
+.multi-select-option:hover {
+  background: var(--input-bg);
+}
+
+.multi-select-option input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.multi-select-option label {
+  cursor: pointer;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multi-select-count {
+  display: inline-block;
+  background: var(--accent-color);
+  color: #000;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
