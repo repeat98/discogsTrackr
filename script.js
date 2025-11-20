@@ -3673,13 +3673,27 @@ class MultiSelectDropdown {
             };
             document.addEventListener('click', this.clickHandler);
             
-            // Close on scroll to prevent misalignment
-            this.scrollHandler = () => {
-                if (this.dropdown.classList.contains('open')) {
+            // Close on page scroll (but not when scrolling inside the dropdown)
+            this.scrollHandler = (e) => {
+                if (!this.dropdown.classList.contains('open')) {
+                    return;
+                }
+                
+                // Check if the scroll event originated from inside the dropdown
+                const target = e.target;
+                if (target && (this.dropdown.contains(target) || this.container.contains(target))) {
+                    // Scroll is happening inside the dropdown, don't close
+                    return;
+                }
+                
+                // Only close if scrolling the window/document itself
+                // This happens when the page scrolls, not when scrolling inside elements
+                if (target === window || target === document || target === document.documentElement || target === document.body) {
                     this.close();
                 }
             };
-            window.addEventListener('scroll', this.scrollHandler, true);
+            // Listen to scroll events on window (page scroll)
+            window.addEventListener('scroll', this.scrollHandler, false);
         }, 0);
     }
     
@@ -3698,7 +3712,7 @@ class MultiSelectDropdown {
             this.clickHandler = null;
         }
         if (this.scrollHandler) {
-            window.removeEventListener('scroll', this.scrollHandler, true);
+            window.removeEventListener('scroll', this.scrollHandler, false);
             this.scrollHandler = null;
         }
         
