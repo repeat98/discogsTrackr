@@ -1431,7 +1431,12 @@ async function processAllReleasesFromInventory(jobId, username, allListings) {
                 youtube_video_id: null,
                 video_urls: JSON.stringify(details.videos || []),
                 url: `https://www.discogs.com/release/${releaseId}`,
-                demand_coeff: computeRarityCoeff(haveCount, wantCount)
+                demand_coeff: computeRarityCoeff(haveCount, wantCount),
+                lowest_price: (details.lowest_price && typeof details.lowest_price === 'number') 
+                    ? details.lowest_price 
+                    : (details.lowest_price && details.lowest_price.value) 
+                    ? details.lowest_price.value 
+                    : null
             };
             
             processedReleases.push(releaseData);
@@ -1556,7 +1561,12 @@ async function processNewReleases(jobId, username, newReleaseIds, uniqueReleases
                 youtube_video_id: null,
                 video_urls: JSON.stringify(details.videos || []),
                 url: `https://www.discogs.com/release/${releaseId}`,
-                demand_coeff: computeRarityCoeff(haveCount, wantCount)
+                demand_coeff: computeRarityCoeff(haveCount, wantCount),
+                lowest_price: (details.lowest_price && typeof details.lowest_price === 'number') 
+                    ? details.lowest_price 
+                    : (details.lowest_price && details.lowest_price.value) 
+                    ? details.lowest_price.value 
+                    : null
             };
             
             processedReleases.push(releaseData);
@@ -4307,6 +4317,35 @@ function formatConditionAbbrev(raw) {
     return s.toUpperCase();
 }
 
+// Determine if a listing is a good deal based on price comparison
+function isGoodDeal(release) {
+    // Need both the listing price and lowest market price
+    if (!release.price || !release.lowest_price) return null;
+    
+    const listingPrice = parseFloat(release.price);
+    
+    // Handle lowest_price being either a number or an object with value property
+    let lowestPrice;
+    if (typeof release.lowest_price === 'object' && release.lowest_price !== null) {
+        lowestPrice = parseFloat(release.lowest_price.value || 0);
+    } else {
+        lowestPrice = parseFloat(release.lowest_price);
+    }
+    
+    // Invalid prices
+    if (isNaN(listingPrice) || isNaN(lowestPrice) || lowestPrice <= 0 || listingPrice <= 0) return null;
+    
+    // Calculate the discount percentage
+    const discountPercent = ((lowestPrice - listingPrice) / lowestPrice) * 100;
+    
+    // Great deal if at least 20% below market lowest price
+    if (discountPercent >= 20) return 'great';
+    // Good deal if at least 10% below market lowest price
+    if (discountPercent >= 10) return 'good';
+    // No significant deal
+    return null;
+}
+
 function getReleaseCondition(release) {
     const direct = (
         release?.media_condition ||
@@ -4575,10 +4614,17 @@ function updateExistingRowOld_DEPRECATED(row, release) {
         if (columnMap.price !== undefined && cells[columnMap.price]) {
             const priceConditionAbbr = formatConditionAbbrev(getReleaseCondition(release));
             const priceText = formatPrice(release.price);
+            const dealType = isGoodDeal(release);
+            const dealBadge = dealType === 'great' 
+                ? '<span class="badge-deal badge-deal-great">DEAL!</span>'
+                : dealType === 'good'
+                ? '<span class="badge-deal badge-deal-good">Good</span>'
+                : '';
             cells[columnMap.price].innerHTML = `
-                <div class="price-cell" style="display:inline-block; position:relative; min-width: 64px;">
+                <div class="price-cell" style="display:inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; position:relative; min-width: 64px;">
                     <span class="price-text">${priceText}</span>
                     ${priceConditionAbbr ? `<span class=\"badge-condition\">${priceConditionAbbr}</span>` : ''}
+                    ${dealBadge}
                 </div>
             `;
         }
@@ -4919,10 +4965,17 @@ function renderRow(row, release) {
         // Price column only for sellers view
         if (currentView === 'sellers') {
             const priceConditionAbbr = formatConditionAbbrev(getReleaseCondition(release));
+            const dealType = isGoodDeal(release);
+            const dealBadge = dealType === 'great' 
+                ? '<span class="badge-deal badge-deal-great">DEAL!</span>'
+                : dealType === 'good'
+                ? '<span class="badge-deal badge-deal-good">Good</span>'
+                : '';
             row.innerHTML += `
-                <td class="text-center"><div class="price-cell" style="display:inline-block; position:relative; min-width: 64px;">
+                <td class="text-center"><div class="price-cell" style="display:inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; position:relative; min-width: 64px;">
                     <span class="price-text">${formatPrice(release.price)}</span>
                     ${priceConditionAbbr ? `<span class="badge-condition">${priceConditionAbbr}</span>` : ''}
+                    ${dealBadge}
                 </div></td>
             `;
         }

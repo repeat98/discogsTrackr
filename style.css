@@ -176,6 +176,37 @@ body.dark-mode .sun-icon {
   z-index: 1;
 }
 
+/* Deal badges */
+.badge-deal {
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  display: inline-block;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.badge-deal-great {
+  background-color: #00d26a;
+  color: #000;
+  animation: pulse-deal 2s infinite;
+}
+
+.badge-deal-good {
+  background-color: #52a8ff;
+  color: #000;
+}
+
+@keyframes pulse-deal {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
 .title-cell {
   position: relative;
   min-height: 22px;
@@ -192,7 +223,8 @@ body.dark-mode .sun-icon {
 .price-cell {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .price-cell .badge-condition {
