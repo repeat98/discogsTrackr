@@ -1,4 +1,4 @@
-﻿// ==================== GLOBAL STATE ====================
+// ==================== GLOBAL STATE ====================
 let allData = [];
 let filteredData = [];
 let totalRecords = 0;
@@ -131,12 +131,19 @@ function normalizeListingForInventory(listing) {
         : listing.price;
 
     const price = parseFloat(priceRaw || 0) || 0;
+    // Prioritize media_condition since it's most relevant for vinyl records
     const condition =
-        listing.condition ||
         listing.media_condition ||
+        listing.condition ||
+        listing.sleeve_condition ||
         listing.item_condition ||
         listing.condition_grade ||
         '';
+
+    // Debug: log when condition is missing (can be removed later)
+    if (!condition && release.id) {
+        console.log(`No condition found for release ${release.id}. Available fields:`, Object.keys(listing));
+    }
 
     return {
         releaseId: release.id,
@@ -465,6 +472,15 @@ function openSettings() {
     const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
     document.getElementById('consumerKey').value = localStorage.getItem('discogs_consumer_key') || '';
     document.getElementById('consumerSecret').value = localStorage.getItem('discogs_consumer_secret') || '';
+    
+    // Load scan mode setting
+    const scanMode = localStorage.getItem('scan_mode') || 'inventory';
+    if (scanMode === 'collection') {
+        document.getElementById('scanModeCollection').checked = true;
+    } else {
+        document.getElementById('scanModeInventory').checked = true;
+    }
+    
     modal.show();
 }
 
@@ -480,6 +496,10 @@ function saveSettings() {
     localStorage.setItem('discogs_consumer_key', consumerKey);
     localStorage.setItem('discogs_consumer_secret', consumerSecret);
     
+    // Save scan mode setting
+    const scanMode = document.querySelector('input[name="scanMode"]:checked').value;
+    localStorage.setItem('scan_mode', scanMode);
+    
     // Track API connection
     if (typeof gtag !== 'undefined') {
         gtag('event', 'api_connected', {
@@ -492,6 +512,11 @@ function saveSettings() {
     modal.hide();
     
     alert('Settings saved successfully!');
+}
+
+// Helper function to get current scan mode
+function getScanMode() {
+    return localStorage.getItem('scan_mode') || 'inventory';
 }
 
 // ==================== PROFILE & DATA MANAGEMENT ====================
@@ -522,6 +547,7 @@ async function exportData() {
             consumerKey: localStorage.getItem('discogs_consumer_key') || '',
             consumerSecret: localStorage.getItem('discogs_consumer_secret') || '',
             darkModeEnabled: localStorage.getItem('darkModeEnabled') || 'false',
+            scanMode: localStorage.getItem('scan_mode') || 'inventory',
             sellerStylePreferences: (() => {
                 try {
                     const prefsStr = localStorage.getItem(SELLER_STYLE_PREFS_KEY);
@@ -720,6 +746,9 @@ async function handleImportFile(event) {
                 } else {
                     document.body.classList.remove('dark-mode');
                 }
+            }
+            if (importData.settings.scanMode) {
+                localStorage.setItem('scan_mode', importData.settings.scanMode);
             }
             if (importData.settings.sellerStylePreferences) {
                 try {
@@ -947,6 +976,18 @@ function toggleSeller(username) {
 function openAddSellerModal() {
     const modal = new bootstrap.Modal(document.getElementById('addSellerModal'));
     document.getElementById('addSellerInput').value = '';
+    
+    // Update help text based on scan mode
+    const scanMode = getScanMode();
+    const helpText = document.getElementById('addSellerModalHelpText');
+    if (helpText) {
+        if (scanMode === 'collection') {
+            helpText.textContent = "We will fetch this user's collection and keep it cached locally.";
+        } else {
+            helpText.textContent = "We will fetch this user's inventory (items for sale) and keep it cached locally.";
+        }
+    }
+    
     modal.show();
 }
 
@@ -1130,8 +1171,9 @@ async function fetchAndProcessSeller(username) {
                 allListings.push(...listings.map(normalizeListingForInventory));
                 
                 const totalPages = Math.min(inventory.pagination?.pages || 1, maxPages);
+                const pagesLeft = totalPages - page;
                 updateJob(jobId, {
-                    currentStep: `Fetching inventory: Page ${page} of ${totalPages}`,
+                    currentStep: `Fetching inventory: Page ${page} of ${totalPages} (${pagesLeft} left)`,
                     progress: page,
                     total: totalPages
                 });
@@ -1224,8 +1266,9 @@ async function updateSellerWithDiff(username) {
                 allListings.push(...listings.map(normalizeListingForInventory));
                 
                 const totalPages = Math.min(inventory.pagination?.pages || 1, maxPages);
+                const pagesLeft = totalPages - page;
                 updateJob(jobId, {
-                    currentStep: `Fetching inventory: Page ${page} of ${totalPages}`,
+                    currentStep: `Fetching inventory: Page ${page} of ${totalPages} (${pagesLeft} left)`,
                     progress: page,
                     total: totalPages
                 });
@@ -2958,6 +3001,11 @@ async function getSellerInventory(username, page = 1, perPage = 100) {
     return await makeDiscogsRequest(url);
 }
 
+async function getUserCollection(username, page = 1, perPage = 100) {
+    const url = `https://api.discogs.com/users/${username}/collection/folders/0/releases?page=${page}&per_page=${perPage}`;
+    return await makeDiscogsRequest(url);
+}
+
 async function getReleaseDetails(releaseId) {
     const url = `https://api.discogs.com/releases/${releaseId}`;
     return await makeDiscogsRequest(url);
@@ -3102,13 +3150,16 @@ async function fetchSellerData(username, forceRefresh = false) {
 
 // Fetch inventory only - no release processing
 async function fetchInventoryOnly(jobId, username) {
+    const scanMode = getScanMode();
+    const isCollectionMode = scanMode === 'collection';
+    
     try {
         const seller = trackedSellers.find(s => s.username === username);
         if (!seller) return;
         
-        // Store fetched inventory in compact normalized form
+        // Store fetched inventory/collection in compact normalized form
         let allListings = [];
-        updateJob(jobId, { currentStep: 'Fetching inventory...' });
+        updateJob(jobId, { currentStep: isCollectionMode ? 'Fetching collection...' : 'Fetching inventory...' });
         updateProgress(jobId);
         
         let page = 1;
@@ -3117,17 +3168,45 @@ async function fetchInventoryOnly(jobId, username) {
         
         while (page <= maxPages) {
             try {
-                const inventory = await getSellerInventory(username, page, perPage);
-                const listings = inventory.listings || [];
+                let data, items;
                 
-                if (listings.length === 0) break;
-
-                // Store only compact normalized listings to reduce DB size
-                allListings.push(...listings.map(normalizeListingForInventory));
+                if (isCollectionMode) {
+                    // Fetch collection
+                    data = await getUserCollection(username, page, perPage);
+                    items = data.releases || [];
+                    
+                    // Convert collection items to normalized format
+                    if (items.length > 0) {
+                        const normalizedItems = items.map(item => {
+                            const release = item.basic_information || {};
+                            return {
+                                releaseId: release.id,
+                                artist: release.artists?.map(a => a.name).join(', ') || 'Unknown Artist',
+                                title: release.title || 'Unknown Title',
+                                price: 0, // Collection items don't have prices
+                                condition: '' // Collection items don't have condition info at this level
+                            };
+                        });
+                        allListings.push(...normalizedItems);
+                    }
+                } else {
+                    // Fetch inventory
+                    data = await getSellerInventory(username, page, perPage);
+                    items = data.listings || [];
+                    
+                    if (items.length > 0) {
+                        allListings.push(...items.map(normalizeListingForInventory));
+                    }
+                }
                 
-                const totalPages = Math.min(inventory.pagination?.pages || 1, maxPages);
+                if (items.length === 0) break;
+                
+                const totalPages = Math.min(data.pagination?.pages || 1, maxPages);
+                const pagesLeft = totalPages - page;
                 updateJob(jobId, {
-                    currentStep: `Fetching inventory: Page ${page} of ${totalPages}`,
+                    currentStep: isCollectionMode 
+                        ? `Fetching collection: Page ${page} of ${totalPages} (${pagesLeft} left)`
+                        : `Fetching inventory: Page ${page} of ${totalPages} (${pagesLeft} left)`,
                     progress: page,
                     total: totalPages
                 });
@@ -3136,7 +3215,7 @@ async function fetchInventoryOnly(jobId, username) {
                 if (page >= totalPages) break;
                 page++;
             } catch (error) {
-                console.error(`Error fetching inventory page ${page}:`, error);
+                console.error(`Error fetching ${isCollectionMode ? 'collection' : 'inventory'} page ${page}:`, error);
                 
                 // If we've already got some data, continue with what we have
                 if (allListings.length > 0) {
@@ -3149,32 +3228,36 @@ async function fetchInventoryOnly(jobId, username) {
             }
         }
             
-        // Save inventory (already compact normalized listings)
+        // Save inventory/collection (already compact normalized listings)
         seller.inventory = allListings;
         await saveSellerDataToDB(seller);
         
         if (allListings.length === 0) {
             updateJob(jobId, {
                 status: 'error',
-                currentStep: 'No listings found for this seller'
+                currentStep: isCollectionMode 
+                    ? 'No items found in this user\'s collection'
+                    : 'No listings found for this seller'
             });
             updateProgress(jobId);
             finishJob(jobId, username);
             return;
         }
         
-        // Complete inventory fetch
+        // Complete inventory/collection fetch
         seller.lastUpdated = Date.now();
         saveTrackedSellers();
         updateJob(jobId, {
             status: 'complete',
-            currentStep: `Inventory fetched: ${allListings.length} items. Click refresh again to process releases.`
+            currentStep: isCollectionMode
+                ? `Collection fetched: ${allListings.length} items. Click refresh again to process releases.`
+                : `Inventory fetched: ${allListings.length} items. Click refresh again to process releases.`
         });
         updateProgress(jobId);
         finishJob(jobId, username);
         
     } catch (error) {
-        console.error('Error fetching inventory:', error);
+        console.error(`Error fetching ${isCollectionMode ? 'collection' : 'inventory'}:`, error);
         updateJob(jobId, {
             status: 'error',
             currentStep: `Error: ${error.message}`
@@ -3193,16 +3276,18 @@ async function processReleasesFromInventory(jobId, username) {
         const allListings = seller.inventory || [];
         
         if (allListings.length === 0) {
+            const scanMode = getScanMode();
             updateJob(jobId, {
                 status: 'error',
-                currentStep: 'No inventory cached'
+                currentStep: scanMode === 'collection' ? 'No collection cached' : 'No inventory cached'
             });
             updateProgress(jobId);
             finishJob(jobId, username);
             return;
         }
         
-        updateJob(jobId, { currentStep: 'Analyzing inventory...' });
+        const scanMode = getScanMode();
+        updateJob(jobId, { currentStep: scanMode === 'collection' ? 'Analyzing collection...' : 'Analyzing inventory...' });
         updateProgress(jobId);
         
         // Process unique releases (supports both legacy and compact inventory)
@@ -3232,10 +3317,11 @@ async function processReleasesFromInventory(jobId, username) {
         const newReleaseIds = releaseIds.filter(id => !existingIds.has(parseInt(id)));
         const removedIds = existingReleases.filter(r => !releaseIds.includes(r.id.toString())).map(r => r.id);
         
-        // Remove releases no longer in inventory
+        // Remove releases no longer in inventory/collection
         if (removedIds.length > 0) {
             seller.releases = existingReleases.filter(r => !removedIds.includes(r.id));
-            console.log(`Removed ${removedIds.length} releases no longer in inventory`);
+            const scanMode = getScanMode();
+            console.log(`Removed ${removedIds.length} releases no longer in ${scanMode === 'collection' ? 'collection' : 'inventory'}`);
             await saveSellerDataToDB(seller);
         }
         
@@ -4114,6 +4200,7 @@ function applyFilters(preservePage = null) {
     
     renderTable();
     renderPagination();
+    updateResultsCount();
 }
 
 function clearAllFilters() {
@@ -4347,9 +4434,11 @@ function isGoodDeal(release) {
 }
 
 function getReleaseCondition(release) {
+    // Prioritize media_condition since it's most relevant for vinyl records
     const direct = (
         release?.media_condition ||
         release?.condition ||
+        release?.sleeve_condition ||
         release?.item_condition ||
         release?.condition_grade ||
         ''
@@ -5109,6 +5198,25 @@ function generateStars(avg) {
 }
 
 // ==================== PAGINATION ====================
+function updateResultsCount() {
+    const resultsCountEl = document.getElementById('results-count');
+    if (!resultsCountEl) return;
+    
+    if (totalRecords === 0) {
+        resultsCountEl.innerHTML = '';
+        return;
+    }
+    
+    const start = (currentPage - 1) * pageSize + 1;
+    const end = Math.min(currentPage * pageSize, totalRecords);
+    const pagesLeft = totalPages - currentPage;
+    
+    resultsCountEl.innerHTML = `
+        Showing <strong>${start}-${end}</strong> of <strong>${totalRecords}</strong> releases
+        ${totalPages > 1 ? ` | Page <strong>${currentPage}</strong> of <strong>${totalPages}</strong> (<strong>${pagesLeft}</strong> left)` : ''}
+    `;
+}
+
 function renderPagination() {
     const pagination = document.getElementById('pagination');
     pagination.innerHTML = '';
@@ -5144,6 +5252,13 @@ function renderPagination() {
     nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
     nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>`;
     pagination.appendChild(nextLi);
+    
+    // Add page counter indicator
+    const pagesLeft = totalPages - currentPage;
+    const pageInfoLi = document.createElement('li');
+    pageInfoLi.className = 'page-item disabled';
+    pageInfoLi.innerHTML = `<span class="page-link" style="background: transparent; border: none; color: var(--text-color); font-size: 12px;">Page ${currentPage} of ${totalPages} (${pagesLeft} left)</span>`;
+    pagination.appendChild(pageInfoLi);
 }
 
 function stopAllVideos() {
@@ -5190,6 +5305,7 @@ function changePage(page) {
     currentPage = page;
     renderTable();
     renderPagination();
+    updateResultsCount();
 }
 
 // ==================== VIDEO CAROUSEL ====================

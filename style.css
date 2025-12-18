@@ -871,7 +871,13 @@ body.dark-mode th[data-sort-key]:hover {
 #results-count {
   color: var(--text-color);
   font-size: 14px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+#results-count strong {
   font-weight: 600;
+  color: var(--accent-color);
 }
 
 /* Heart button styling */
